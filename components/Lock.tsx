@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { deriveKeys, type Keys } from '@/lib/crypto';
-import Hero3D from '@/components/Hero3D';
+import { SplineScene } from '@/components/ui/splite';
 
 export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   const [setup, setSetup] = useState<boolean | null>(null);
@@ -80,8 +80,11 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
           🔐 my<span className="text-[#5b8cff]">Vault</span>
         </Link>
 
-        <div className="relative z-0 h-64 -my-4">
-          <Hero3D className="!absolute inset-0 h-full w-full" />
+        <div className="relative z-0 flex-1 min-h-[300px] -my-2">
+          <SplineScene
+            scene="/robot.splinecode"
+            className="!absolute inset-0 h-full w-full scale-110"
+          />
         </div>
 
         <div className="relative z-10">
