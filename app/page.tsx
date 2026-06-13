@@ -70,7 +70,7 @@ export default function Landing() {
 
           <div className="relative h-[360px] md:h-[460px]">
             <SplineScene
-              scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+              scene="/robot.splinecode"
               className="!absolute inset-0 h-full w-full"
             />
           </div>
