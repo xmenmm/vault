@@ -10,7 +10,7 @@ export default function Landing() {
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 backdrop-blur-md bg-[#05070c]/70 border-b border-white/5">
-        <div className="mx-auto max-w-6xl flex items-center justify-between px-5 sm:px-8 h-16">
+        <div className="mx-auto max-w-[1600px] flex items-center justify-between px-6 sm:px-12 lg:px-20 h-16">
           <div className="font-extrabold text-lg tracking-tight">
             🔐 my<span className="text-[#5b8cff]">Vault</span>
           </div>
@@ -29,8 +29,8 @@ export default function Landing() {
       </header>
 
       {/* ── Hero ── */}
-      <section className="relative mx-auto max-w-6xl px-5 sm:px-8 pt-12 md:pt-20 pb-16">
-        <div className="grid md:grid-cols-2 gap-8 items-center">
+      <section className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 pt-12 md:pt-20 pb-16">
+        <div className="grid md:grid-cols-2 gap-10 lg:gap-16 items-center">
           <div className="relative z-10">
             <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-[#9db4ff] bg-[#5b8cff]/10 border border-[#5b8cff]/25 rounded-full px-3 py-1">
               <LockIcon className="w-3.5 h-3.5" /> ZERO-KNOWLEDGE ENCRYPTION
@@ -62,17 +62,17 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="relative h-[360px] md:h-[460px]">
+          <div className="relative h-[440px] md:h-[600px] lg:h-[700px]">
             <SplineScene
               scene="/robot.splinecode"
-              className="!absolute inset-0 h-full w-full"
+              className="!absolute inset-0 h-full w-full scale-110 lg:scale-125"
             />
           </div>
         </div>
       </section>
 
       {/* ── Features ── */}
-      <section id="features" className="relative mx-auto max-w-6xl px-5 sm:px-8 py-16">
+      <section id="features" className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-16">
         <h2 className="text-3xl md:text-4xl font-bold text-center">Built like a bank vault.</h2>
         <p className="mt-3 text-neutral-400 text-center max-w-xl mx-auto">
           Everything is encrypted on your device before it ever leaves. Here&apos;s what
@@ -95,7 +95,7 @@ export default function Landing() {
       </section>
 
       {/* ── How it works ── */}
-      <section id="how" className="relative mx-auto max-w-6xl px-5 sm:px-8 py-16">
+      <section id="how" className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-16">
         <h2 className="text-3xl md:text-4xl font-bold text-center">Up and running in a minute.</h2>
         <div className="mt-12 grid md:grid-cols-3 gap-4">
           {STEPS.map((s, i) => (
@@ -111,7 +111,7 @@ export default function Landing() {
       </section>
 
       {/* ── Security band ── */}
-      <section id="security" className="relative mx-auto max-w-6xl px-5 sm:px-8 py-16">
+      <section id="security" className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-16">
         <div className="rounded-3xl border border-white/8 bg-gradient-to-br from-[#0b1020] to-[#0a0a14] p-8 md:p-12 grid md:grid-cols-2 gap-10 items-center">
           <div>
             <h2 className="text-3xl md:text-4xl font-bold">
@@ -143,7 +143,7 @@ export default function Landing() {
       </section>
 
       {/* ── Final CTA ── */}
-      <section className="relative mx-auto max-w-6xl px-5 sm:px-8 py-20 text-center">
+      <section className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-20 text-center">
         <h2 className="text-4xl md:text-5xl font-bold">Take back your passwords.</h2>
         <p className="mt-4 text-neutral-400 max-w-md mx-auto">
           Encrypted, and yours alone. Unlock with your master password and you&apos;re in.
@@ -158,7 +158,7 @@ export default function Landing() {
 
       {/* ── Footer ── */}
       <footer className="relative border-t border-white/5">
-        <div className="mx-auto max-w-6xl px-5 sm:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
+        <div className="mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
           <div className="font-extrabold text-white">
             🔐 my<span className="text-[#5b8cff]">Vault</span>
           </div>
