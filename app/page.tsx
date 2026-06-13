@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Hero3D from '@/components/Hero3D';
+import { SplineScene } from '@/components/ui/splite';
 
 export default function Landing() {
   return (
@@ -69,7 +69,10 @@ export default function Landing() {
           </div>
 
           <div className="relative h-[360px] md:h-[460px]">
-            <Hero3D className="!absolute inset-0 h-full w-full" />
+            <SplineScene
+              scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+              className="!absolute inset-0 h-full w-full"
+            />
           </div>
         </div>
       </section>

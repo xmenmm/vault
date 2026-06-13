@@ -1,6 +1,7 @@
 'use client';
 
 import { Component, Suspense, lazy, useState, type ReactNode } from 'react';
+import Hero3D from '@/components/Hero3D';
 const Spline = lazy(() => import('@splinetool/react-spline'));
 
 interface SplineSceneProps {
@@ -23,11 +24,9 @@ class SplineBoundary extends Component<
 }
 
 function Fallback({ className }: { className?: string }) {
-  return (
-    <div className={`spline-fallback ${className ?? ''}`}>
-      <div className="spline-orb" />
-    </div>
-  );
+  // If the external 3D scene can't load (offline / restricted network), fall
+  // back to the self-rendered WebGL blob instead of a flat placeholder.
+  return <Hero3D className={className} />;
 }
 
 export function SplineScene({ scene, className }: SplineSceneProps) {
