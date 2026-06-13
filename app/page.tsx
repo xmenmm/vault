@@ -52,13 +52,7 @@ export default function Landing() {
                 href="/login"
                 className="rounded-full bg-white text-black font-semibold px-6 py-3.5 hover:bg-neutral-200 transition"
               >
-                Create your vault →
-              </Link>
-              <Link
-                href="/login"
-                className="rounded-full border border-white/15 px-6 py-3.5 font-semibold hover:bg-white/5 transition"
-              >
-                I already have one
+                Open your vault →
               </Link>
             </div>
             <div className="mt-7 flex items-center gap-5 text-sm text-neutral-400">
@@ -152,13 +146,13 @@ export default function Landing() {
       <section className="relative mx-auto max-w-6xl px-5 sm:px-8 py-20 text-center">
         <h2 className="text-4xl md:text-5xl font-bold">Take back your passwords.</h2>
         <p className="mt-4 text-neutral-400 max-w-md mx-auto">
-          Free, encrypted, and yours. Set a master password and start in seconds.
+          Encrypted, and yours alone. Unlock with your master password and you&apos;re in.
         </p>
         <Link
           href="/login"
           className="mt-8 inline-block rounded-full bg-white text-black font-semibold px-8 py-4 hover:bg-neutral-200 transition"
         >
-          Create your vault →
+          Open your vault →
         </Link>
       </section>
 

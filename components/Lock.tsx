@@ -1,17 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { deriveKeys, type Keys } from '@/lib/crypto';
 import Hero3D from '@/components/Hero3D';
 
 export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
-  const [mode, setMode] = useState<'unlock' | 'create'>('unlock');
+  // setup=true only while no account exists yet (first run). After the single
+  // account is created, it's unlock-only — no registration option at all.
+  const [setup, setSetup] = useState<boolean | null>(null);
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/status')
+      .then((r) => r.json())
+      .then((d) => setSetup(!!d.setup))
+      .catch(() => setSetup(false));
+  }, []);
+
+  const creating = setup === true;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +31,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
       setErr('Master password must be at least 8 characters');
       return;
     }
-    if (mode === 'create' && pw !== pw2) {
+    if (creating && pw !== pw2) {
       setErr('Master passwords do not match');
       return;
     }
@@ -28,7 +39,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
     try {
       const keys = await deriveKeys(email, pw);
       const cleanEmail = email.trim().toLowerCase();
-      if (mode === 'create') {
+      if (creating) {
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -82,7 +93,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
             ciphertext — not even we can read your vault.
           </p>
           <ul className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-neutral-300 max-w-sm">
-            {['AES-256-GCM', 'Zero-knowledge', 'Works on phone', 'No tracking'].map((t) => (
+            {['AES-256-GCM', 'Zero-knowledge', 'Works on phone', 'Private'].map((t) => (
               <li key={t} className="flex items-center gap-2">
                 <span className="text-[#2bb079]">✓</span> {t}
               </li>
@@ -99,103 +110,79 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
             🔐 my<span className="text-[#5b8cff]">Vault</span>
           </Link>
 
-          <h1 className="text-2xl font-bold">
-            {mode === 'create' ? 'Create your vault' : 'Welcome back'}
-          </h1>
-          <p className="mt-1.5 text-neutral-400 text-sm">
-            {mode === 'create'
-              ? 'Set a master password only you know.'
-              : 'Enter your email and master password to unlock.'}
-          </p>
+          {setup === null ? (
+            <p className="text-neutral-400 text-sm">Loading…</p>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold">
+                {creating ? 'Set up your vault' : 'Welcome back'}
+              </h1>
+              <p className="mt-1.5 text-neutral-400 text-sm">
+                {creating
+                  ? 'Create the master password for your vault.'
+                  : 'Enter your email and master password to unlock.'}
+              </p>
 
-          {mode === 'create' && (
-            <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3 text-xs text-amber-200/80 leading-relaxed">
-              ⚠️ Your master password encrypts everything and is never sent to the
-              server. Lose it and the data is gone — there is no reset.
-            </div>
+              {creating && (
+                <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3 text-xs text-amber-200/80 leading-relaxed">
+                  ⚠️ Your master password encrypts everything and is never sent to the
+                  server. Lose it and the data is gone — there is no reset.
+                </div>
+              )}
+
+              <form onSubmit={submit} className="mt-6 space-y-4">
+                <div>
+                  <label className={label}>Email</label>
+                  <input
+                    className={field}
+                    type="email"
+                    autoComplete="username"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@email.com"
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>Master password</label>
+                  <input
+                    className={field}
+                    type="password"
+                    autoComplete={creating ? 'new-password' : 'current-password'}
+                    required
+                    value={pw}
+                    onChange={(e) => setPw(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                {creating && (
+                  <div>
+                    <label className={label}>Confirm master password</label>
+                    <input
+                      className={field}
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      value={pw2}
+                      onChange={(e) => setPw2(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                )}
+
+                {err && <p className="text-sm text-[#e0503c]">{err}</p>}
+
+                <button
+                  className="w-full rounded-xl bg-[#5b8cff] py-3 font-semibold text-white hover:bg-[#3f6fe0] transition disabled:opacity-60"
+                  disabled={busy}
+                >
+                  {busy ? 'Working…' : creating ? 'Create vault' : 'Unlock'}
+                </button>
+              </form>
+            </>
           )}
-
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            <div>
-              <label className={label}>Email</label>
-              <input
-                className={field}
-                type="email"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@email.com"
-              />
-            </div>
-
-            <div>
-              <label className={label}>Master password</label>
-              <input
-                className={field}
-                type="password"
-                autoComplete={mode === 'create' ? 'new-password' : 'current-password'}
-                required
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
-
-            {mode === 'create' && (
-              <div>
-                <label className={label}>Confirm master password</label>
-                <input
-                  className={field}
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={pw2}
-                  onChange={(e) => setPw2(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </div>
-            )}
-
-            {err && <p className="text-sm text-[#e0503c]">{err}</p>}
-
-            <button
-              className="w-full rounded-xl bg-[#5b8cff] py-3 font-semibold text-white hover:bg-[#3f6fe0] transition disabled:opacity-60"
-              disabled={busy}
-            >
-              {busy ? 'Working…' : mode === 'create' ? 'Create vault' : 'Unlock'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-neutral-400">
-            {mode === 'unlock' ? (
-              <>
-                No vault yet?{' '}
-                <button
-                  className="font-semibold text-[#7aa2ff] hover:text-[#9db4ff]"
-                  onClick={() => {
-                    setMode('create');
-                    setErr(null);
-                  }}
-                >
-                  Create one
-                </button>
-              </>
-            ) : (
-              <>
-                Already have a vault?{' '}
-                <button
-                  className="font-semibold text-[#7aa2ff] hover:text-[#9db4ff]"
-                  onClick={() => {
-                    setMode('unlock');
-                    setErr(null);
-                  }}
-                >
-                  Unlock
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </div>
