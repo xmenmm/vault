@@ -10,59 +10,59 @@ export default function Landing() {
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 backdrop-blur-md bg-[#05070c]/70 border-b border-white/5">
-        <div className="mx-auto max-w-[1600px] flex items-center justify-between px-6 sm:px-12 lg:px-20 h-16">
+        <div className="w-full flex items-center justify-between px-6 sm:px-12 lg:px-20 h-16">
           <div className="font-extrabold text-lg tracking-tight">
             🔐 my<span className="text-[#5b8cff]">Vault</span>
           </div>
           <nav className="hidden md:flex items-center gap-7 text-sm text-neutral-300">
-            <a href="#features" className="hover:text-white transition">Features</a>
-            <a href="#how" className="hover:text-white transition">How it works</a>
-            <a href="#security" className="hover:text-white transition">Security</a>
+            <a href="#features" className="hover:text-white transition">Fitur</a>
+            <a href="#how" className="hover:text-white transition">Cara kerja</a>
+            <a href="#security" className="hover:text-white transition">Keamanan</a>
           </nav>
           <Link
             href="/login"
             className="text-sm font-semibold rounded-full bg-white text-black px-4 py-2 hover:bg-neutral-200 transition"
           >
-            Open vault
+            Buka brankas
           </Link>
         </div>
       </header>
 
       {/* ── Hero ── */}
-      <section className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 pt-12 md:pt-20 pb-16">
+      <section className="relative w-full px-6 sm:px-12 lg:px-20 pt-12 md:pt-20 pb-16">
         <div className="grid md:grid-cols-2 gap-10 lg:gap-16 items-center">
           <div className="relative z-10">
             <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-[#9db4ff] bg-[#5b8cff]/10 border border-[#5b8cff]/25 rounded-full px-3 py-1">
-              <LockIcon className="w-3.5 h-3.5" /> ZERO-KNOWLEDGE ENCRYPTION
+              <LockIcon className="w-3.5 h-3.5" /> ENKRIPSI ZERO-KNOWLEDGE
             </span>
             <h1 className="mt-5 text-5xl md:text-6xl font-bold leading-[1.05] tracking-tight">
-              Your passwords,
+              Password kamu,
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#7aa2ff] to-[#a78bff]">
-                encrypted end to end.
+                terenkripsi penuh.
               </span>
             </h1>
             <p className="mt-5 text-neutral-300 text-lg max-w-lg leading-relaxed">
-              One vault for every login — Facebook, Gmail, anything. Locked with a
-              master password only you know. Not the server, not us, not anyone can
-              read it.
+              Satu brankas buat semua login — Facebook, Gmail, apa pun. Dikunci pakai
+              master password yang cuma kamu tahu. Server, kami, siapa pun — nggak ada
+              yang bisa baca.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/login"
                 className="rounded-full bg-white text-black font-semibold px-6 py-3.5 hover:bg-neutral-200 transition"
               >
-                Open your vault →
+                Buka brankas kamu →
               </Link>
             </div>
             <div className="mt-7 flex items-center gap-5 text-sm text-neutral-400">
               <span className="flex items-center gap-2"><CheckIcon className="w-4 h-4 text-[#2bb079]" /> AES-256-GCM</span>
-              <span className="flex items-center gap-2"><CheckIcon className="w-4 h-4 text-[#2bb079]" /> Works on phone</span>
-              <span className="flex items-center gap-2"><CheckIcon className="w-4 h-4 text-[#2bb079]" /> No tracking</span>
+              <span className="flex items-center gap-2"><CheckIcon className="w-4 h-4 text-[#2bb079]" /> Jalan di HP</span>
+              <span className="flex items-center gap-2"><CheckIcon className="w-4 h-4 text-[#2bb079]" /> Tanpa pelacakan</span>
             </div>
           </div>
 
-          <div className="relative h-[440px] md:h-[600px] lg:h-[700px]">
+          <div className="relative h-[440px] md:h-[600px] lg:h-[720px]">
             <SplineScene
               scene="/robot.splinecode"
               className="!absolute inset-0 h-full w-full scale-110 lg:scale-125"
@@ -72,11 +72,10 @@ export default function Landing() {
       </section>
 
       {/* ── Features ── */}
-      <section id="features" className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-16">
-        <h2 className="text-3xl md:text-4xl font-bold text-center">Built like a bank vault.</h2>
+      <section id="features" className="relative w-full px-6 sm:px-12 lg:px-20 py-16">
+        <h2 className="text-3xl md:text-4xl font-bold text-center">Dibangun kayak brankas bank.</h2>
         <p className="mt-3 text-neutral-400 text-center max-w-xl mx-auto">
-          Everything is encrypted on your device before it ever leaves. Here&apos;s what
-          you get.
+          Semua dienkripsi di perangkat kamu sebelum keluar. Ini yang kamu dapat.
         </p>
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map((f) => (
@@ -95,8 +94,8 @@ export default function Landing() {
       </section>
 
       {/* ── How it works ── */}
-      <section id="how" className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-16">
-        <h2 className="text-3xl md:text-4xl font-bold text-center">Up and running in a minute.</h2>
+      <section id="how" className="relative w-full px-6 sm:px-12 lg:px-20 py-16">
+        <h2 className="text-3xl md:text-4xl font-bold text-center">Siap pakai dalam semenit.</h2>
         <div className="mt-12 grid md:grid-cols-3 gap-4">
           {STEPS.map((s, i) => (
             <div key={s.title} className="rounded-2xl border border-white/8 bg-white/[0.02] p-7">
@@ -111,16 +110,16 @@ export default function Landing() {
       </section>
 
       {/* ── Security band ── */}
-      <section id="security" className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-16">
+      <section id="security" className="relative w-full px-6 sm:px-12 lg:px-20 py-16">
         <div className="rounded-3xl border border-white/8 bg-gradient-to-br from-[#0b1020] to-[#0a0a14] p-8 md:p-12 grid md:grid-cols-2 gap-10 items-center">
           <div>
             <h2 className="text-3xl md:text-4xl font-bold">
-              Even <span className="text-[#5b8cff]">we</span> can&apos;t read it.
+              Bahkan <span className="text-[#5b8cff]">kami</span> nggak bisa baca.
             </h2>
             <p className="mt-4 text-neutral-300 leading-relaxed">
-              Your master password is turned into an encryption key inside your browser
-              with 600,000 rounds of PBKDF2 — and it never leaves your device. The
-              server only ever stores scrambled ciphertext.
+              Master password kamu diubah jadi kunci enkripsi di dalam browser dengan
+              600.000 putaran PBKDF2 — dan nggak pernah keluar dari perangkat kamu.
+              Server cuma menyimpan ciphertext yang teracak.
             </p>
             <ul className="mt-6 space-y-3 text-sm">
               {SECURITY.map((s) => (
@@ -132,37 +131,37 @@ export default function Landing() {
             </ul>
           </div>
           <div className="rounded-2xl border border-white/8 bg-black/40 p-5 font-mono text-[13px] leading-relaxed overflow-hidden">
-            <div className="text-neutral-500">// what the server actually stores</div>
-            <div className="mt-2 text-[#2bb079]">title:</div>
-            <div className="text-neutral-300 break-all">3a9f:c1d4e7…a8b2 ❌ unreadable</div>
+            <div className="text-neutral-500">// yang sebenarnya disimpan server</div>
+            <div className="mt-2 text-[#2bb079]">judul:</div>
+            <div className="text-neutral-300 break-all">3a9f:c1d4e7…a8b2 ❌ nggak terbaca</div>
             <div className="mt-2 text-[#2bb079]">password:</div>
-            <div className="text-neutral-300 break-all">7f20:9e0c11…4d6f ❌ unreadable</div>
-            <div className="mt-4 text-neutral-500">// only your master password decrypts it</div>
+            <div className="text-neutral-300 break-all">7f20:9e0c11…4d6f ❌ nggak terbaca</div>
+            <div className="mt-4 text-neutral-500">// cuma master password kamu yang bisa dekripsi</div>
           </div>
         </div>
       </section>
 
       {/* ── Final CTA ── */}
-      <section className="relative mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-20 text-center">
-        <h2 className="text-4xl md:text-5xl font-bold">Take back your passwords.</h2>
+      <section className="relative w-full px-6 sm:px-12 lg:px-20 py-20 text-center">
+        <h2 className="text-4xl md:text-5xl font-bold">Ambil alih password kamu.</h2>
         <p className="mt-4 text-neutral-400 max-w-md mx-auto">
-          Encrypted, and yours alone. Unlock with your master password and you&apos;re in.
+          Terenkripsi, dan milik kamu sepenuhnya. Buka pakai master password, langsung masuk.
         </p>
         <Link
           href="/login"
           className="mt-8 inline-block rounded-full bg-white text-black font-semibold px-8 py-4 hover:bg-neutral-200 transition"
         >
-          Open your vault →
+          Buka brankas kamu →
         </Link>
       </section>
 
       {/* ── Footer ── */}
       <footer className="relative border-t border-white/5">
-        <div className="mx-auto max-w-[1600px] px-6 sm:px-12 lg:px-20 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
+        <div className="w-full px-6 sm:px-12 lg:px-20 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
           <div className="font-extrabold text-white">
             🔐 my<span className="text-[#5b8cff]">Vault</span>
           </div>
-          <div>Encrypted on your device · You hold the only key</div>
+          <div>Dienkripsi di perangkat kamu · Cuma kamu yang pegang kuncinya</div>
         </div>
       </footer>
     </main>
@@ -171,25 +170,25 @@ export default function Landing() {
 
 /* ── data ── */
 const FEATURES = [
-  { icon: <ShieldIcon />, title: 'Zero-knowledge', desc: 'Encrypted in your browser. The server never sees a plaintext password.' },
-  { icon: <KeyIcon />, title: 'One master password', desc: 'A single key unlocks everything. Strong by design, never stored or sent.' },
-  { icon: <PhoneIcon />, title: 'Any device', desc: 'Open your vault from laptop or phone — your data decrypts locally.' },
-  { icon: <DiceIcon />, title: 'Password generator', desc: 'Create long, random, unique passwords for every account in one tap.' },
-  { icon: <TimerIcon />, title: 'Auto-lock', desc: 'Locks itself after idle and wipes the key from memory. Clipboard auto-clears.' },
-  { icon: <SearchIcon />, title: 'Instant search', desc: 'Find any login fast, organized by your own categories.' },
+  { icon: <ShieldIcon />, title: 'Zero-knowledge', desc: 'Dienkripsi di browser kamu. Server nggak pernah lihat password asli.' },
+  { icon: <KeyIcon />, title: 'Satu master password', desc: 'Satu kunci buka semuanya. Kuat by design, nggak pernah disimpan atau dikirim.' },
+  { icon: <PhoneIcon />, title: 'Semua perangkat', desc: 'Buka brankas dari laptop atau HP — datanya didekripsi lokal.' },
+  { icon: <DiceIcon />, title: 'Generator password', desc: 'Bikin password panjang, acak, dan unik buat tiap akun sekali klik.' },
+  { icon: <TimerIcon />, title: 'Kunci otomatis', desc: 'Mengunci sendiri saat idle & hapus kunci dari memori. Clipboard auto-bersih.' },
+  { icon: <SearchIcon />, title: 'Pencarian instan', desc: 'Temukan login mana pun dengan cepat, terorganisir per kategori kamu.' },
 ];
 
 const STEPS = [
-  { title: 'Set a master password', desc: 'Pick one strong password you’ll remember. It becomes your encryption key.' },
-  { title: 'Add your logins', desc: 'Save Facebook, Gmail, banking — anything — with the built-in generator.' },
-  { title: 'Access anywhere', desc: 'Deploy once, then unlock from any device. Everything decrypts on the spot.' },
+  { title: 'Set master password', desc: 'Pilih satu password kuat yang kamu inget. Itu jadi kunci enkripsi kamu.' },
+  { title: 'Tambah login kamu', desc: 'Simpan Facebook, Gmail, bank — apa pun — pakai generator bawaan.' },
+  { title: 'Akses di mana aja', desc: 'Sekali deploy, buka dari perangkat mana pun. Semuanya didekripsi seketika.' },
 ];
 
 const SECURITY = [
-  'Master password never transmitted — only a one-way auth hash is.',
-  'AES-256-GCM authenticated encryption per entry.',
-  'Row-level security isolates every account in the database.',
-  'No password reset — because no one but you can decrypt it.',
+  'Master password nggak pernah dikirim — cuma hash satu-arah.',
+  'Enkripsi terautentikasi AES-256-GCM di tiap entri.',
+  'Row-level security mengisolasi tiap akun di database.',
+  'Nggak ada reset password — karena cuma kamu yang bisa dekripsi.',
 ];
 
 /* ── inline icons ── */

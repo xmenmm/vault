@@ -6,8 +6,6 @@ import { deriveKeys, type Keys } from '@/lib/crypto';
 import Hero3D from '@/components/Hero3D';
 
 export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
-  // setup=true only while no account exists yet (first run). After the single
-  // account is created, it's unlock-only — no registration option at all.
   const [setup, setSetup] = useState<boolean | null>(null);
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -28,11 +26,11 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
     e.preventDefault();
     setErr(null);
     if (pw.length < 8) {
-      setErr('Master password must be at least 8 characters');
+      setErr('Master password minimal 8 karakter');
       return;
     }
     if (creating && pw !== pw2) {
-      setErr('Master passwords do not match');
+      setErr('Master password nggak cocok');
       return;
     }
     setBusy(true);
@@ -47,7 +45,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
-          throw new Error(d.error || 'Could not create vault');
+          throw new Error(d.error || 'Gagal membuat brankas');
         }
       }
       const loginRes = await fetch('/api/auth/login', {
@@ -57,11 +55,11 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
       });
       if (!loginRes.ok) {
         const d = await loginRes.json().catch(() => ({}));
-        throw new Error(d.error || 'Wrong email or master password');
+        throw new Error(d.error || 'Email atau master password salah');
       }
       onUnlock(keys);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Failed');
+      setErr(e instanceof Error ? e.message : 'Gagal');
     } finally {
       setBusy(false);
     }
@@ -73,7 +71,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
   return (
     <div className="min-h-screen w-full grid md:grid-cols-2 bg-[#05070c] text-white">
-      {/* ── Left brand / 3D panel ── */}
+      {/* ── Panel brand / 3D kiri ── */}
       <div className="relative hidden md:flex flex-col justify-between overflow-hidden border-r border-white/5 bg-gradient-to-br from-[#0b1020] to-[#05070c] p-10">
         <div className="pointer-events-none absolute -top-32 -left-24 h-96 w-96 rounded-full bg-[#5b8cff]/20 blur-[120px]" />
         <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-[#7c5cff]/15 blur-[120px]" />
@@ -87,13 +85,13 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         </div>
 
         <div className="relative z-10">
-          <h2 className="text-2xl font-bold">Encrypted on your device.</h2>
+          <h2 className="text-2xl font-bold">Terenkripsi di perangkat kamu.</h2>
           <p className="mt-2 text-neutral-400 text-sm max-w-sm">
-            Your master password is the only key. The server stores nothing but
-            ciphertext — not even we can read your vault.
+            Master password kamu satu-satunya kunci. Server nggak nyimpen apa pun
+            selain ciphertext — bahkan kami nggak bisa baca brankas kamu.
           </p>
           <ul className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-neutral-300 max-w-sm">
-            {['AES-256-GCM', 'Zero-knowledge', 'Works on phone', 'Private'].map((t) => (
+            {['AES-256-GCM', 'Zero-knowledge', 'Jalan di HP', 'Privat'].map((t) => (
               <li key={t} className="flex items-center gap-2">
                 <span className="text-[#2bb079]">✓</span> {t}
               </li>
@@ -102,7 +100,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         </div>
       </div>
 
-      {/* ── Right form panel ── */}
+      {/* ── Panel form kanan ── */}
       <div className="relative flex items-center justify-center p-6 sm:p-10">
         <div className="pointer-events-none absolute top-1/3 right-0 h-72 w-72 rounded-full bg-[#5b8cff]/10 blur-[120px] md:hidden" />
         <div className="relative w-full max-w-sm">
@@ -111,22 +109,22 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
           </Link>
 
           {setup === null ? (
-            <p className="text-neutral-400 text-sm">Loading…</p>
+            <p className="text-neutral-400 text-sm">Memuat…</p>
           ) : (
             <>
               <h1 className="text-2xl font-bold">
-                {creating ? 'Set up your vault' : 'Welcome back'}
+                {creating ? 'Siapkan brankas kamu' : 'Selamat datang kembali'}
               </h1>
               <p className="mt-1.5 text-neutral-400 text-sm">
                 {creating
-                  ? 'Create the master password for your vault.'
-                  : 'Enter your email and master password to unlock.'}
+                  ? 'Buat master password untuk brankas kamu.'
+                  : 'Masukkan email dan master password untuk membuka.'}
               </p>
 
               {creating && (
                 <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3 text-xs text-amber-200/80 leading-relaxed">
-                  ⚠️ Your master password encrypts everything and is never sent to the
-                  server. Lose it and the data is gone — there is no reset.
+                  ⚠️ Master password kamu mengenkripsi semuanya dan nggak pernah dikirim
+                  ke server. Lupa = data hilang permanen — nggak ada reset.
                 </div>
               )}
 
@@ -140,7 +138,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@email.com"
+                    placeholder="kamu@email.com"
                   />
                 </div>
 
@@ -159,7 +157,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
                 {creating && (
                   <div>
-                    <label className={label}>Confirm master password</label>
+                    <label className={label}>Konfirmasi master password</label>
                     <input
                       className={field}
                       type="password"
@@ -178,7 +176,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
                   className="w-full rounded-xl bg-[#5b8cff] py-3 font-semibold text-white hover:bg-[#3f6fe0] transition disabled:opacity-60"
                   disabled={busy}
                 >
-                  {busy ? 'Working…' : creating ? 'Create vault' : 'Unlock'}
+                  {busy ? 'Memproses…' : creating ? 'Buat brankas' : 'Buka'}
                 </button>
               </form>
             </>

@@ -33,7 +33,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     setLoading(true);
     const res = await fetch('/api/vault');
     if (!res.ok) {
-      flash('Load failed');
+      flash('Gagal memuat');
       setLoading(false);
       return;
     }
@@ -44,7 +44,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         const f = JSON.parse(await decryptStr(keys.encKey, r.data)) as Fields;
         out.push({ ...EMPTY, ...f, id: r.id });
       } catch {
-        // wrong key or tampered row — skip
+        // kunci salah / data rusak — lewati
       }
     }
     setItems(out);
@@ -63,28 +63,28 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
       body: JSON.stringify(id ? { id, data } : { data }),
     });
     setEditing(null);
-    flash(res.ok ? 'Saved' : 'Save failed');
+    flash(res.ok ? 'Tersimpan' : 'Gagal menyimpan');
     load();
   }
 
   async function remove(id: string) {
-    if (!window.confirm('Delete this entry?')) return;
+    if (!window.confirm('Hapus entri ini?')) return;
     await fetch('/api/vault', {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    flash('Deleted');
+    flash('Terhapus');
     load();
   }
 
   async function copy(text: string, label: string) {
     try {
       await navigator.clipboard.writeText(text);
-      flash(`${label} copied`);
+      flash(`${label} disalin`);
       window.setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000);
     } catch {
-      flash('Copy failed');
+      flash('Gagal menyalin');
     }
   }
 
@@ -114,11 +114,11 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
           🔐 my<span>Vault</span>
         </div>
         <button className="btn" style={{ width: '100%', marginBottom: 14 }} onClick={() => setEditing('new')}>
-          + Add login
+          + Tambah login
         </button>
         <nav className="side-nav">
           <button className={`snav ${cat === null ? 'active' : ''}`} onClick={() => setCat(null)}>
-            <span>📁 All items</span>
+            <span>📁 Semua item</span>
             <span className="cnt">{items.length}</span>
           </button>
           {categories.map((c) => (
@@ -134,23 +134,23 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         </nav>
         <div className="side-foot">
           <button className="btn ghost" style={{ width: '100%' }} onClick={onLock}>
-            🔒 Lock vault
+            🔒 Kunci brankas
           </button>
-          <p className="side-note">Auto-locks after 10 min idle</p>
+          <p className="side-note">Terkunci otomatis setelah 10 menit idle</p>
         </div>
       </aside>
 
       <div className="main2">
         <div className="top">
           <div className="search">
-            <input placeholder="Search…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input placeholder="Cari…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <div className="sp" />
           <button className="btn sm" onClick={() => setEditing('new')}>
-            + Add
+            + Tambah
           </button>
           <button className="btn ghost sm only-mobile" onClick={onLock}>
-            Lock
+            Kunci
           </button>
         </div>
 
@@ -161,12 +161,12 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
             </div>
           )}
           {loading ? (
-            <div className="empty">Decrypting…</div>
+            <div className="empty">Mendekripsi…</div>
           ) : shown.length === 0 ? (
             <div className="empty">
               {items.length === 0
-                ? 'Vault is empty. Tap + Add to store a login.'
-                : 'No matches.'}
+                ? 'Brankas kosong. Klik + Tambah untuk menyimpan login.'
+                : 'Nggak ada hasil.'}
             </div>
           ) : (
             shown.map((it) => (
@@ -215,7 +215,7 @@ function ItemRow({
         <div className="ic">{initial}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="ttl">{item.title || '(untitled)'}</span>
+            <span className="ttl">{item.title || '(tanpa judul)'}</span>
             {item.category && <span className="cat">{item.category}</span>}
           </div>
           {item.username && <div className="usr">{item.username}</div>}
@@ -229,17 +229,17 @@ function ItemRow({
       <div className="acts">
         {item.username && (
           <button className="btn sec sm" onClick={() => onCopy(item.username, 'Username')}>
-            Copy user
+            Salin user
           </button>
         )}
         {item.password && (
           <button className="btn sm" onClick={() => onCopy(item.password, 'Password')}>
-            Copy pass
+            Salin pass
           </button>
         )}
         {item.password && (
           <button className="btn ghost sm" onClick={() => setShow((s) => !s)}>
-            {show ? 'Hide' : 'Show'}
+            {show ? 'Sembunyi' : 'Lihat'}
           </button>
         )}
         {item.url && (
@@ -249,19 +249,26 @@ function ItemRow({
             target="_blank"
             rel="noreferrer"
           >
-            Open
+            Buka
           </a>
         )}
         <button className="btn ghost sm" onClick={onEdit}>
           Edit
         </button>
         <button className="btn ghost sm" onClick={onDelete} style={{ color: 'var(--danger)' }}>
-          Delete
+          Hapus
         </button>
       </div>
     </div>
   );
 }
+
+const GEN_LABELS: Record<string, string> = {
+  lower: 'kecil',
+  upper: 'besar',
+  digit: 'angka',
+  symbol: 'simbol',
+};
 
 function ItemModal({
   initial,
@@ -297,9 +304,9 @@ function ItemModal({
   return (
     <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <h2>{id ? 'Edit entry' : 'New entry'}</h2>
+        <h2>{id ? 'Edit entri' : 'Entri baru'}</h2>
         <form onSubmit={submit}>
-          <label className="fld">Title</label>
+          <label className="fld">Judul</label>
           <input
             className="input"
             required
@@ -313,7 +320,7 @@ function ItemModal({
             className="input"
             value={f.username}
             onChange={(e) => set('username', e.target.value)}
-            placeholder="you@email.com"
+            placeholder="kamu@email.com"
           />
 
           <label className="fld">Password</label>
@@ -334,12 +341,12 @@ function ItemModal({
               <div className="row2">
                 <input className="input" style={{ marginBottom: 0 }} readOnly value={f.password} />
                 <button type="button" className="btn" onClick={() => set('password', generatePassword(opts))}>
-                  Generate
+                  Buat
                 </button>
               </div>
               <div className="opts">
                 <label>
-                  Len
+                  Pjg
                   <input
                     type="number"
                     min={8}
@@ -348,14 +355,7 @@ function ItemModal({
                     onChange={(e) =>
                       setOpts((o) => ({ ...o, length: Math.max(8, Math.min(64, +e.target.value || 8)) }))
                     }
-                    style={{
-                      width: 56,
-                      padding: '4px 6px',
-                      borderRadius: 6,
-                      border: '1px solid var(--border)',
-                      background: 'var(--bg)',
-                      color: 'var(--text)',
-                    }}
+                    style={{ width: 56, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
                   />
                 </label>
                 {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
@@ -365,14 +365,14 @@ function ItemModal({
                       checked={opts[k]}
                       onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))}
                     />
-                    {k}
+                    {GEN_LABELS[k]}
                   </label>
                 ))}
               </div>
             </div>
           )}
 
-          <label className="fld">Website (optional)</label>
+          <label className="fld">Website (opsional)</label>
           <input
             className="input"
             value={f.url}
@@ -380,15 +380,15 @@ function ItemModal({
             placeholder="facebook.com"
           />
 
-          <label className="fld">Category (optional)</label>
+          <label className="fld">Kategori (opsional)</label>
           <input
             className="input"
             value={f.category}
             onChange={(e) => set('category', e.target.value)}
-            placeholder="Social"
+            placeholder="Sosial"
           />
 
-          <label className="fld">Notes (optional)</label>
+          <label className="fld">Catatan (opsional)</label>
           <textarea
             className="input"
             rows={3}
@@ -399,10 +399,10 @@ function ItemModal({
 
           <div className="modal-acts">
             <button type="button" className="btn ghost" onClick={onClose}>
-              Cancel
+              Batal
             </button>
             <button className="btn" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? 'Menyimpan…' : 'Simpan'}
             </button>
           </div>
         </form>
