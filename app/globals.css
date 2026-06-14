@@ -102,7 +102,7 @@ label.fld { display: block; font-size: 12px; color: var(--muted); margin: 0 0 5p
 }
 .search input:focus { outline: none; border-color: var(--accent); }
 
-.wrap { max-width: 820px; margin: 0 auto; padding: 20px 16px; }
+.wrap { width: 100%; padding: 22px 28px; }
 
 /* ── Item list ── */
 .item {
