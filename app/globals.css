@@ -30,6 +30,19 @@
   --radius: 12px;
 }
 
+[data-theme="light"] {
+  --bg: #f3f5fa;
+  --panel: #ffffff;
+  --panel-2: #eef1f7;
+  --border: #dde3ee;
+  --text: #1b2230;
+  --muted: #687385;
+  --accent: #3f6fe0;
+  --accent-d: #2f5bc7;
+  --danger: #d8402c;
+  --ok: #1f9d6a;
+}
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
 body {
@@ -184,6 +197,32 @@ label.fld { display: block; font-size: 12px; color: var(--muted); margin: 0 0 5p
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .kv:last-of-type { border-bottom: none; }
 .kv span { color: var(--muted); }
+
+/* ── Quick actions (Ringkasan) ── */
+.quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.qbtn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+  color: var(--text); cursor: pointer; font-size: 20px; transition: border-color .15s, background .15s;
+}
+.qbtn span { font-size: 14px; font-weight: 600; color: var(--text); }
+.qbtn:hover { border-color: var(--accent); background: var(--panel-2); }
+
+/* ── Strength meter ── */
+.strength { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.strength-bar { flex: 1; height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+.strength-bar span { display: block; height: 100%; border-radius: 4px; transition: width .2s, background .2s; }
+.strength-label { font-size: 12px; font-weight: 600; flex: none; min-width: 84px; text-align: right; }
+
+/* ── Favorite + toggle ── */
+.iconbtn.fav { color: #e0a13c; }
+.switch {
+  width: 44px; height: 25px; border-radius: 20px; background: var(--panel-2); border: 1px solid var(--border);
+  position: relative; cursor: pointer; padding: 0; flex: none; transition: background .15s;
+}
+.switch.on { background: var(--accent); border-color: var(--accent); }
+.switch .knob { position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch.on .knob { left: 21px; }
 
 /* ── Modal ── */
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: grid; place-items: center; padding: 16px; z-index: 50; }
