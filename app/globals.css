@@ -130,6 +130,7 @@ label.fld { display: block; font-size: 12px; color: var(--muted); margin: 0 0 5p
   background: linear-gradient(135deg, rgba(91,140,255,.28), rgba(124,92,255,.20));
   display: grid; place-items: center; font-weight: 700; color: #dbe6ff; font-size: 16px;
 }
+.item .ic img { width: 22px; height: 22px; border-radius: 5px; display: block; }
 .item .info { flex: 1; min-width: 0; }
 .item .title-row { display: flex; align-items: center; gap: 8px; }
 .item .ttl { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -685,12 +685,22 @@ function ItemRow({
   onToggleFav,
 }: { item: Item; highlight?: string } & RowProps) {
   const [show, setShow] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
   const initial = (item.title || item.username || '?').charAt(0).toUpperCase();
   const href = /^https?:\/\//.test(item.url) ? item.url : `https://${item.url}`;
   const title = item.title || '(tanpa judul)';
+  const domain = item.url ? item.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : '';
+  const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64` : '';
   return (
     <div className="item">
-      <div className="ic">{initial}</div>
+      <div className="ic">
+        {favicon && !imgErr ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={favicon} alt="" width={22} height={22} onError={() => setImgErr(true)} />
+        ) : (
+          initial
+        )}
+      </div>
       <div className="info">
         <div className="title-row">
           {item.url ? (
