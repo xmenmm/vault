@@ -25,8 +25,8 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (pw.length < 8) {
-      setErr('Master password minimal 8 karakter');
+    if (pw.length < 4) {
+      setErr('Password minimal 4 karakter');
       return;
     }
     if (creating && pw !== pw2) {
@@ -35,8 +35,11 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
     }
     setBusy(true);
     try {
-      const keys = await deriveKeys(email, pw);
-      const cleanEmail = email.trim().toLowerCase();
+      const id = email.trim().toLowerCase();
+      // Allow a plain username (e.g. "admin") — mapped to a synthetic email for
+      // the auth backend. The same value is the encryption-key salt.
+      const cleanEmail = id.includes('@') ? id : `${id}@vault.local`;
+      const keys = await deriveKeys(cleanEmail, pw);
       if (creating) {
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
@@ -133,15 +136,15 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
               <form onSubmit={submit} className="mt-6 space-y-4">
                 <div>
-                  <label className={label}>Email</label>
+                  <label className={label}>ID / Username</label>
                   <input
                     className={field}
-                    type="email"
+                    type="text"
                     autoComplete="username"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="kamu@email.com"
+                    placeholder="admin"
                   />
                 </div>
 
