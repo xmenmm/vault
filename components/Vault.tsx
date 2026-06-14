@@ -15,13 +15,14 @@ type Fields = {
   favorite?: boolean;
 };
 type Item = Fields & { id: string };
-type View = 'overview' | 'vault' | 'favorites' | 'security' | 'generator' | 'backup' | 'settings' | 'faq';
+type View = 'overview' | 'vault' | 'search' | 'favorites' | 'security' | 'generator' | 'backup' | 'settings' | 'faq';
 
 const EMPTY: Fields = { title: '', username: '', password: '', url: '', notes: '', category: '', favorite: false };
 
 const TITLES: Record<View, string> = {
   overview: '🏠 Ringkasan',
   vault: '🔑 Brankas',
+  search: '🔍 Cari',
   favorites: '⭐ Favorit',
   security: '🛡️ Keamanan',
   generator: '🎲 Generator Password',
@@ -168,6 +169,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const NAV: { v: View; label: string; count?: number }[] = [
     { v: 'overview', label: '🏠 Ringkasan' },
     { v: 'vault', label: '🔑 Brankas', count: items.length },
+    { v: 'search', label: '🔍 Cari' },
     { v: 'favorites', label: '⭐ Favorit', count: favCount },
     { v: 'security', label: '🛡️ Keamanan' },
     { v: 'generator', label: '🎲 Generator' },
@@ -239,6 +241,8 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         {view === 'overview' && (
           <OverviewView items={items} onNav={setView} onAdd={() => setEditing('new')} {...rowProps} />
         )}
+
+        {view === 'search' && <SearchView items={items} query={query} setQuery={setQuery} {...rowProps} />}
 
         {isList && (
           <div className="wrap">
@@ -335,6 +339,44 @@ function OverviewView({
         recent.map((it) => <ItemRow key={it.id} item={it} {...row} />)
       ) : (
         <div className="empty">Belum ada item. Klik ➕ Tambah login buat mulai.</div>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── Cari ───────────────────────── */
+function SearchView({
+  items,
+  query,
+  setQuery,
+  ...row
+}: { items: Item[]; query: string; setQuery: (q: string) => void } & RowProps) {
+  const q = query.trim().toLowerCase();
+  const results = q
+    ? items.filter((i) =>
+        [i.title, i.username, i.url, i.category, i.notes].some((v) => (v || '').toLowerCase().includes(q))
+      )
+    : [];
+  return (
+    <div className="wrap">
+      <input
+        className="search-big"
+        autoFocus
+        placeholder="Cari judul, username, website, kategori, atau catatan…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {!q ? (
+        <div className="empty">Ketik buat nyari di {items.length} entri kamu.</div>
+      ) : results.length === 0 ? (
+        <div className="empty">Nggak ada hasil buat &ldquo;{query}&rdquo;.</div>
+      ) : (
+        <>
+          <p className="sec-hint">{results.length} hasil</p>
+          {results.map((it) => (
+            <ItemRow key={it.id} item={it} {...row} />
+          ))}
+        </>
       )}
     </div>
   );
