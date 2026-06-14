@@ -215,7 +215,13 @@ function ItemRow({
       <div className="ic">{initial}</div>
       <div className="info">
         <div className="title-row">
-          <span className="ttl">{item.title || '(tanpa judul)'}</span>
+          {item.url ? (
+            <a className="ttl ttl-link" href={href} target="_blank" rel="noreferrer" title="Buka situs">
+              {item.title || '(tanpa judul)'} ↗
+            </a>
+          ) : (
+            <span className="ttl">{item.title || '(tanpa judul)'}</span>
+          )}
           {item.category && <span className="cat">{item.category}</span>}
         </div>
         {item.username && <div className="usr">{item.username}</div>}

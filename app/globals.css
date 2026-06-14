@@ -120,6 +120,8 @@ label.fld { display: block; font-size: 12px; color: var(--muted); margin: 0 0 5p
 .item .info { flex: 1; min-width: 0; }
 .item .title-row { display: flex; align-items: center; gap: 8px; }
 .item .ttl { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .ttl-link { color: var(--text); text-decoration: none; cursor: pointer; }
+.item .ttl-link:hover { color: var(--accent); text-decoration: underline; }
 .item .cat { font-size: 11px; color: var(--accent); background: rgba(91,140,255,0.12); padding: 2px 8px; border-radius: 20px; flex: none; }
 .item .usr { color: var(--muted); font-size: 13px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item .pw { font-family: ui-monospace, monospace; color: var(--text); font-size: 13px; margin-top: 4px; word-break: break-all; }
