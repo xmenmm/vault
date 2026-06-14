@@ -352,10 +352,22 @@ function SearchView({
   ...row
 }: { items: Item[]; query: string; setQuery: (q: string) => void } & RowProps) {
   const q = query.trim().toLowerCase();
+  // Relevance: title starts-with first, then title contains, then username, then
+  // other fields — so near-identical names sort together and the best match leads.
+  const rankItem = (i: Item): number => {
+    const t = i.title.toLowerCase();
+    if (t.startsWith(q)) return 0;
+    if (t.includes(q)) return 1;
+    if (i.username.toLowerCase().includes(q)) return 2;
+    if ([i.url, i.category, i.notes].some((v) => (v || '').toLowerCase().includes(q))) return 3;
+    return 99;
+  };
   const results = q
-    ? items.filter((i) =>
-        [i.title, i.username, i.url, i.category, i.notes].some((v) => (v || '').toLowerCase().includes(q))
-      )
+    ? items
+        .map((i) => ({ i, score: rankItem(i) }))
+        .filter((x) => x.score < 99)
+        .sort((a, b) => a.score - b.score || a.i.title.localeCompare(b.i.title))
+        .map((x) => x.i)
     : [];
   return (
     <div className="wrap">
@@ -374,7 +386,7 @@ function SearchView({
         <>
           <p className="sec-hint">{results.length} hasil</p>
           {results.map((it) => (
-            <ItemRow key={it.id} item={it} {...row} />
+            <ItemRow key={it.id} item={it} highlight={query.trim()} {...row} />
           ))}
         </>
       )}
@@ -651,10 +663,31 @@ function FaqView() {
 }
 
 /* ───────────────────────── Item row ───────────────────────── */
-function ItemRow({ item, onCopy, onEditItem, onDelete, onToggleFav }: { item: Item } & RowProps) {
+function hl(text: string, q?: string): React.ReactNode {
+  if (!q) return text;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return text;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className="hl">{text.slice(i, i + q.length)}</mark>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
+
+function ItemRow({
+  item,
+  highlight,
+  onCopy,
+  onEditItem,
+  onDelete,
+  onToggleFav,
+}: { item: Item; highlight?: string } & RowProps) {
   const [show, setShow] = useState(false);
   const initial = (item.title || item.username || '?').charAt(0).toUpperCase();
   const href = /^https?:\/\//.test(item.url) ? item.url : `https://${item.url}`;
+  const title = item.title || '(tanpa judul)';
   return (
     <div className="item">
       <div className="ic">{initial}</div>
@@ -662,14 +695,14 @@ function ItemRow({ item, onCopy, onEditItem, onDelete, onToggleFav }: { item: It
         <div className="title-row">
           {item.url ? (
             <a className="ttl ttl-link" href={href} target="_blank" rel="noreferrer" title="Buka situs">
-              {item.title || '(tanpa judul)'} ↗
+              {hl(title, highlight)} ↗
             </a>
           ) : (
-            <span className="ttl">{item.title || '(tanpa judul)'}</span>
+            <span className="ttl">{hl(title, highlight)}</span>
           )}
-          {item.category && <span className="cat">{item.category}</span>}
+          {item.category && <span className="cat">{hl(item.category, highlight)}</span>}
         </div>
-        {item.username && <div className="usr">{item.username}</div>}
+        {item.username && <div className="usr">{hl(item.username, highlight)}</div>}
         {show && item.password && <div className="pw">{item.password}</div>}
       </div>
       <div className="acts">
