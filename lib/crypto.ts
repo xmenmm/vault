@@ -69,12 +69,26 @@ export async function deriveKeys(email: string, masterPassword: string): Promise
     hkdf,
     256
   );
-  const encKey = await crypto.subtle.importKey('raw', encBits, { name: 'AES-GCM' }, false, [
+  const encKey = await crypto.subtle.importKey('raw', encBits, { name: 'AES-GCM' }, true, [
     'encrypt',
     'decrypt',
   ]);
 
   return { encKey, authHash };
+}
+
+// Export / restore the encryption key so a session can survive a page refresh
+// without re-deriving from the master password.
+export async function exportEncKey(key: CryptoKey): Promise<string> {
+  const raw = await crypto.subtle.exportKey('raw', key);
+  return b64(new Uint8Array(raw));
+}
+
+export async function importEncKey(b64str: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', buf(fromB64(b64str)), { name: 'AES-GCM' }, true, [
+    'encrypt',
+    'decrypt',
+  ]);
 }
 
 // Encrypt a UTF-8 string → "iv:ciphertext" (both base64).

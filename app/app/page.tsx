@@ -6,15 +6,15 @@ import { useVault } from '@/app/providers';
 import Vault from '@/components/Vault';
 
 export default function AppPage() {
-  const { keys, lock } = useVault();
+  const { keys, lock, restoring } = useVault();
   const router = useRouter();
 
-  // No key in memory (refresh / not unlocked) → back to login.
+  // Wait for the cached session to restore before deciding to redirect.
   useEffect(() => {
-    if (!keys) router.replace('/login');
-  }, [keys, router]);
+    if (!restoring && !keys) router.replace('/login');
+  }, [restoring, keys, router]);
 
-  if (!keys) return null;
+  if (restoring || !keys) return null;
 
   return (
     <Vault

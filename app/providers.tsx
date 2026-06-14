@@ -8,20 +8,83 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { Keys } from '@/lib/crypto';
+import { exportEncKey, importEncKey, type Keys } from '@/lib/crypto';
 
-// Holds the in-memory encryption key across client-side route changes
-// (landing → login → dashboard). Wiped on lock / idle / full refresh.
-type Ctx = { keys: Keys | null; setKeys: (k: Keys | null) => void; lock: () => void };
+// The encryption key is cached (locally) so a refresh / reopen doesn't force a
+// re-login. It still auto-locks after idle and expires after a few days.
+const STORE = 'vault-k';
+const AUTO_LOCK_MS = 30 * 60 * 1000; // 30 min idle
+const PERSIST_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+type Ctx = {
+  keys: Keys | null;
+  setKeys: (k: Keys | null) => void;
+  lock: () => void;
+  restoring: boolean;
+};
 
 const VaultCtx = createContext<Ctx | null>(null);
-const AUTO_LOCK_MS = 10 * 60 * 1000;
 
 export function VaultProvider({ children }: { children: React.ReactNode }) {
-  const [keys, setKeys] = useState<Keys | null>(null);
-  const lock = useCallback(() => setKeys(null), []);
+  const [keys, setKeysState] = useState<Keys | null>(null);
+  const [restoring, setRestoring] = useState(true);
   const timer = useRef<number | null>(null);
 
+  const persist = useCallback(async (k: Keys | null) => {
+    try {
+      if (!k) {
+        localStorage.removeItem(STORE);
+        return;
+      }
+      const encKeyB64 = await exportEncKey(k.encKey);
+      localStorage.setItem(
+        STORE,
+        JSON.stringify({ encKeyB64, authHash: k.authHash, exp: Date.now() + PERSIST_MS })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setKeys = useCallback(
+    (k: Keys | null) => {
+      setKeysState(k);
+      persist(k);
+    },
+    [persist]
+  );
+
+  const lock = useCallback(() => {
+    setKeysState(null);
+    try {
+      localStorage.removeItem(STORE);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Restore a cached session on load.
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = localStorage.getItem(STORE);
+        if (raw) {
+          const { encKeyB64, authHash, exp } = JSON.parse(raw);
+          if (exp && Date.now() < exp && encKeyB64) {
+            const encKey = await importEncKey(encKeyB64);
+            setKeysState({ encKey, authHash: authHash || '' });
+          } else {
+            localStorage.removeItem(STORE);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      setRestoring(false);
+    })();
+  }, []);
+
+  // Idle auto-lock.
   useEffect(() => {
     if (!keys) return;
     const reset = () => {
@@ -37,7 +100,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     };
   }, [keys, lock]);
 
-  return <VaultCtx.Provider value={{ keys, setKeys, lock }}>{children}</VaultCtx.Provider>;
+  return (
+    <VaultCtx.Provider value={{ keys, setKeys, lock, restoring }}>{children}</VaultCtx.Provider>
+  );
 }
 
 export function useVault() {
