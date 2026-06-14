@@ -13,21 +13,30 @@ type Fields = {
   category: string;
 };
 type Item = Fields & { id: string };
+type View = 'vault' | 'security' | 'generator' | 'backup' | 'settings' | 'faq';
 
 const EMPTY: Fields = { title: '', username: '', password: '', url: '', notes: '', category: '' };
+
+const TITLES: Record<Exclude<View, 'vault'>, string> = {
+  security: '🛡️ Keamanan',
+  generator: '🎲 Generator Password',
+  backup: '📦 Backup',
+  settings: '⚙️ Pengaturan',
+  faq: '❓ Pertanyaan Umum (FAQ)',
+};
 
 export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<string | null>(null);
-  const [view, setView] = useState<'vault' | 'faq'>('vault');
+  const [view, setView] = useState<View>('vault');
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const flash = useCallback((m: string) => {
     setToast(m);
-    window.setTimeout(() => setToast(null), 1500);
+    window.setTimeout(() => setToast(null), 1600);
   }, []);
 
   const load = useCallback(async () => {
@@ -79,6 +88,19 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     load();
   }
 
+  async function deleteAll() {
+    if (!window.confirm('Hapus SEMUA item di brankas? Nggak bisa dibatalkan.')) return;
+    for (const it of items) {
+      await fetch('/api/vault', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: it.id }),
+      });
+    }
+    flash('Semua item dihapus');
+    load();
+  }
+
   async function copy(text: string, label: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -108,6 +130,15 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     });
   }, [items, query, cat]);
 
+  const NAV: { v: View; label: string; count?: number }[] = [
+    { v: 'vault', label: '🔑 Brankas', count: items.length },
+    { v: 'security', label: '🛡️ Keamanan' },
+    { v: 'generator', label: '🎲 Generator' },
+    { v: 'backup', label: '📦 Backup' },
+    { v: 'settings', label: '⚙️ Pengaturan' },
+    { v: 'faq', label: '❓ FAQ' },
+  ];
+
   return (
     <div className="shell">
       <aside className="side">
@@ -127,13 +158,12 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
         <p className="side-label">Menu</p>
         <nav className="side-nav">
-          <button className={`snav ${view === 'vault' ? 'active' : ''}`} onClick={() => setView('vault')}>
-            <span>🔑 Brankas</span>
-            <span className="cnt">{items.length}</span>
-          </button>
-          <button className={`snav ${view === 'faq' ? 'active' : ''}`} onClick={() => setView('faq')}>
-            <span>❓ FAQ</span>
-          </button>
+          {NAV.map((n) => (
+            <button key={n.v} className={`snav ${view === n.v ? 'active' : ''}`} onClick={() => setView(n.v)}>
+              <span>{n.label}</span>
+              {n.count !== undefined && <span className="cnt">{n.count}</span>}
+            </button>
+          ))}
         </nav>
 
         <div className="side-foot">
@@ -145,9 +175,9 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
       </aside>
 
       <div className="main2">
-        {view === 'vault' ? (
-          <>
-            <div className="top">
+        <div className="top">
+          {view === 'vault' ? (
+            <>
               <div className="search">
                 <input placeholder="Cari…" value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
@@ -155,64 +185,63 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
               <button className="btn sm" onClick={() => setEditing('new')}>
                 + Tambah
               </button>
-              <button className="btn ghost sm only-mobile" onClick={onLock}>
-                Kunci
-              </button>
-            </div>
-
-            <div className="wrap">
-              {categories.length > 0 && (
-                <div className="chips">
-                  <button className={`chip ${cat === null ? 'active' : ''}`} onClick={() => setCat(null)}>
-                    Semua ({items.length})
-                  </button>
-                  {categories.map((c) => (
-                    <button
-                      key={c.name}
-                      className={`chip ${cat === c.name ? 'active' : ''}`}
-                      onClick={() => setCat(c.name)}
-                    >
-                      {c.name} ({c.count})
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {loading ? (
-                <div className="empty">Mendekripsi…</div>
-              ) : shown.length === 0 ? (
-                <div className="empty">
-                  {items.length === 0
-                    ? 'Brankas kosong. Klik + Tambah untuk menyimpan login.'
-                    : 'Nggak ada hasil.'}
-                </div>
-              ) : (
-                shown.map((it) => (
-                  <ItemRow
-                    key={it.id}
-                    item={it}
-                    onCopy={copy}
-                    onEdit={() => setEditing(it)}
-                    onDelete={() => remove(it.id)}
-                  />
-                ))
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="top">
-              <div style={{ fontWeight: 700, fontSize: 16 }}>❓ Pertanyaan Umum (FAQ)</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{TITLES[view]}</div>
               <div className="sp" />
-              <button className="btn ghost sm only-mobile" onClick={onLock}>
-                Kunci
-              </button>
-            </div>
-            <div className="wrap">
-              <Faq />
-            </div>
-          </>
+            </>
+          )}
+          <button className="btn ghost sm only-mobile" onClick={onLock}>
+            Kunci
+          </button>
+        </div>
+
+        {view === 'vault' && (
+          <div className="wrap">
+            {categories.length > 0 && (
+              <div className="chips">
+                <button className={`chip ${cat === null ? 'active' : ''}`} onClick={() => setCat(null)}>
+                  Semua ({items.length})
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c.name}
+                    className={`chip ${cat === c.name ? 'active' : ''}`}
+                    onClick={() => setCat(c.name)}
+                  >
+                    {c.name} ({c.count})
+                  </button>
+                ))}
+              </div>
+            )}
+            {loading ? (
+              <div className="empty">Mendekripsi…</div>
+            ) : shown.length === 0 ? (
+              <div className="empty">
+                {items.length === 0
+                  ? 'Brankas kosong. Klik + Tambah untuk menyimpan login.'
+                  : 'Nggak ada hasil.'}
+              </div>
+            ) : (
+              shown.map((it) => (
+                <ItemRow
+                  key={it.id}
+                  item={it}
+                  onCopy={copy}
+                  onEdit={() => setEditing(it)}
+                  onDelete={() => remove(it.id)}
+                />
+              ))
+            )}
+          </div>
         )}
+
+        {view === 'security' && <SecurityView items={items} onEdit={(it) => setEditing(it)} />}
+        {view === 'generator' && <GeneratorView onCopy={copy} />}
+        {view === 'backup' && <BackupView flash={flash} reload={load} />}
+        {view === 'settings' && <SettingsView items={items} onLock={onLock} onDeleteAll={deleteAll} />}
+        {view === 'faq' && <FaqView />}
       </div>
 
       {editing && (
@@ -229,55 +258,248 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   );
 }
 
-const FAQS = [
-  {
-    q: 'Apa itu myVault?',
-    a: 'Brankas password pribadi yang menyimpan semua login (ID & password) kamu di satu tempat, terenkripsi penuh.',
-  },
-  {
-    q: 'Seberapa aman data saya?',
-    a: 'Sangat aman. Semua dienkripsi di perangkat kamu pakai AES-256-GCM sebelum dikirim. Server cuma menyimpan ciphertext yang teracak — nggak bisa dibaca siapa pun.',
-  },
-  {
-    q: 'Gimana kalau saya lupa master password?',
-    a: 'Sayangnya nggak bisa direset. Master password adalah satu-satunya kunci dan nggak pernah disimpan di mana pun. Kalau lupa, datanya hilang permanen — jadi catat baik-baik.',
-  },
-  {
-    q: 'Bisa diakses dari HP?',
-    a: 'Bisa. Buka URL-nya di browser HP, login pakai email + master password yang sama, datanya langsung kebuka.',
-  },
-  {
-    q: 'Siapa yang bisa lihat password saya?',
-    a: 'Cuma kamu. Bahkan pembuatnya nggak bisa baca, karena enkripsinya zero-knowledge — master password nggak pernah keluar dari perangkat kamu.',
-  },
-  {
-    q: 'Gimana cara nambah login baru?',
-    a: 'Klik "+ Tambah login" atau "+ Tambah", isi judul, username/email, password (bisa pakai generator), dan website (opsional), lalu Simpan.',
-  },
-  {
-    q: 'Apa fungsi field Website?',
-    a: 'Kalau diisi, judul entri jadi link yang bisa diklik — langsung membuka website-nya di tab baru.',
-  },
-  {
-    q: 'Kenapa cuma bisa 1 akun?',
-    a: 'Ini brankas pribadi single-user. Setelah akun pertama dibuat, registrasi otomatis ketutup — jadi nggak ada yang bisa daftar atau masuk selain kamu.',
-  },
-];
+/* ───────────────────────── Keamanan ───────────────────────── */
+function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => void }) {
+  const { total, weak, reused, noPw, flagged } = useMemo(() => {
+    const pwCount = new Map<string, number>();
+    for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
+    const weak = items.filter((i) => i.password && i.password.length < 10);
+    const reused = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1);
+    const noPw = items.filter((i) => !i.password);
+    const flagged = [...new Set([...weak, ...reused])];
+    return { total: items.length, weak, reused, noPw, flagged };
+  }, [items]);
 
-function Faq() {
   return (
-    <div className="faq">
-      <p className="faq-intro">Hal-hal yang sering ditanyain soal brankas ini.</p>
-      {FAQS.map((f, i) => (
-        <details key={i} className="faq-item">
-          <summary>{f.q}</summary>
-          <p>{f.a}</p>
-        </details>
-      ))}
+    <div className="wrap">
+      <div className="stats">
+        <Stat n={total} label="Total item" />
+        <Stat n={weak.length} label="Password lemah" tone={weak.length ? 'warn' : 'ok'} />
+        <Stat n={reused.length} label="Dipakai ulang" tone={reused.length ? 'warn' : 'ok'} />
+        <Stat n={noPw.length} label="Tanpa password" tone={noPw.length ? 'warn' : 'ok'} />
+      </div>
+
+      {flagged.length > 0 ? (
+        <>
+          <p className="sec-hint">Item yang sebaiknya diperbaiki:</p>
+          {flagged.map((it) => (
+            <div className="item" key={it.id}>
+              <div className="ic">{(it.title || it.username || '?').charAt(0).toUpperCase()}</div>
+              <div className="info">
+                <div className="title-row">
+                  <span className="ttl">{it.title || '(tanpa judul)'}</span>
+                </div>
+                <div className="usr" style={{ color: '#e0a13c' }}>
+                  {weak.includes(it) ? 'Password lemah (terlalu pendek)' : ''}
+                  {weak.includes(it) && reused.includes(it) ? ' · ' : ''}
+                  {reused.includes(it) ? 'Dipakai ulang di entri lain' : ''}
+                </div>
+              </div>
+              <div className="acts">
+                <button className="iconbtn" title="Perbaiki" onClick={() => onEdit(it)}>
+                  <EditIcon />
+                </button>
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
+        <div className="empty">👍 Aman — nggak ada password yang lemah atau dipakai ulang.</div>
+      )}
+    </div>
+  );
+}
+function Stat({ n, label, tone }: { n: number; label: string; tone?: 'warn' | 'ok' }) {
+  return (
+    <div className={`stat ${tone ?? ''}`}>
+      <div className="stat-n">{n}</div>
+      <div className="stat-l">{label}</div>
     </div>
   );
 }
 
+/* ───────────────────────── Generator ───────────────────────── */
+function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
+  const [pw, setPw] = useState('');
+  const [opts, setOpts] = useState<GenOpts>({ length: 18, lower: true, upper: true, digit: true, symbol: true });
+  const numStyle = { width: 64, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' } as const;
+
+  function gen() {
+    setPw(generatePassword(opts));
+  }
+  useEffect(() => {
+    gen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="wrap">
+      <div className="panel-card" style={{ maxWidth: 560 }}>
+        <div className="row2">
+          <input className="input" style={{ marginBottom: 0, fontFamily: 'ui-monospace, monospace', fontSize: 16 }} readOnly value={pw} />
+          <button type="button" className="btn" onClick={gen}>
+            Buat
+          </button>
+        </div>
+        <button type="button" className="btn sec" style={{ width: '100%', marginTop: 10 }} onClick={() => pw && onCopy(pw, 'Password')}>
+          Salin
+        </button>
+        <div className="opts" style={{ marginTop: 18 }}>
+          <label>
+            Panjang
+            <input
+              type="number"
+              min={8}
+              max={64}
+              value={opts.length}
+              onChange={(e) => setOpts((o) => ({ ...o, length: Math.max(8, Math.min(64, +e.target.value || 8)) }))}
+              style={numStyle}
+            />
+          </label>
+          {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
+            <label key={k}>
+              <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
+              {GEN_LABELS[k]}
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Backup ───────────────────────── */
+function BackupView({ flash, reload }: { flash: (m: string) => void; reload: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  async function exportBackup() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/vault');
+      const { items } = await res.json();
+      const blob = new Blob([JSON.stringify({ version: 1, items }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'myvault-backup.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      flash('Backup diunduh');
+    } catch {
+      flash('Gagal ekspor');
+    }
+    setBusy(false);
+  }
+
+  async function importBackup(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const parsed = JSON.parse(await file.text());
+      const rows: { data?: string }[] = parsed.items ?? [];
+      let n = 0;
+      for (const r of rows) {
+        if (typeof r.data === 'string') {
+          await fetch('/api/vault', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ data: r.data }),
+          });
+          n++;
+        }
+      }
+      flash(`${n} item diimpor`);
+      reload();
+    } catch {
+      flash('File backup nggak valid');
+    }
+    setBusy(false);
+    e.target.value = '';
+  }
+
+  return (
+    <div className="wrap">
+      <div className="panel-card" style={{ maxWidth: 600 }}>
+        <h3 className="pc-title">⬇ Ekspor backup</h3>
+        <p className="pc-desc">
+          Unduh salinan <b>terenkripsi</b> semua entri kamu (isinya ciphertext — aman). Simpan buat jaga-jaga
+          kalau perlu pulihkan suatu saat.
+        </p>
+        <button className="btn" disabled={busy} onClick={exportBackup}>
+          {busy ? 'Memproses…' : 'Unduh backup'}
+        </button>
+      </div>
+      <div className="panel-card" style={{ maxWidth: 600, marginTop: 14 }}>
+        <h3 className="pc-title">⬆ Impor backup</h3>
+        <p className="pc-desc">
+          Pulihkan dari file backup. Item ditambahkan ke brankas. Wajib pakai <b>master password yang sama</b>
+          seperti saat backup dibuat (kalau beda, data nggak bisa didekripsi).
+        </p>
+        <label className="btn sec" style={{ display: 'inline-block', cursor: busy ? 'default' : 'pointer' }}>
+          Pilih file backup
+          <input type="file" accept="application/json" style={{ display: 'none' }} onChange={importBackup} disabled={busy} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Pengaturan ───────────────────────── */
+function SettingsView({ items, onLock, onDeleteAll }: { items: Item[]; onLock: () => void; onDeleteAll: () => void }) {
+  return (
+    <div className="wrap">
+      <div className="panel-card" style={{ maxWidth: 600 }}>
+        <h3 className="pc-title">Info brankas</h3>
+        <div className="kv"><span>Total item</span><b>{items.length}</b></div>
+        <div className="kv"><span>Mode</span><b>Single-user (pribadi)</b></div>
+        <div className="kv"><span>Enkripsi</span><b>AES-256-GCM · zero-knowledge</b></div>
+        <div className="kv"><span>Kunci otomatis</span><b>10 menit idle</b></div>
+        <button className="btn sec" style={{ marginTop: 16 }} onClick={onLock}>
+          🔒 Kunci sekarang
+        </button>
+      </div>
+      <div className="panel-card danger" style={{ maxWidth: 600, marginTop: 14 }}>
+        <h3 className="pc-title" style={{ color: 'var(--danger)' }}>Zona bahaya</h3>
+        <p className="pc-desc">Hapus semua entri di brankas. Tindakan ini permanen dan nggak bisa dibatalkan.</p>
+        <button className="btn danger" onClick={onDeleteAll}>
+          Hapus semua item
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── FAQ ───────────────────────── */
+const FAQS = [
+  { q: 'Apa itu myVault?', a: 'Brankas password pribadi yang menyimpan semua login (ID & password) kamu di satu tempat, terenkripsi penuh.' },
+  { q: 'Seberapa aman data saya?', a: 'Sangat aman. Semua dienkripsi di perangkat kamu pakai AES-256-GCM sebelum dikirim. Server cuma menyimpan ciphertext yang teracak — nggak bisa dibaca siapa pun.' },
+  { q: 'Gimana kalau saya lupa master password?', a: 'Sayangnya nggak bisa direset. Master password adalah satu-satunya kunci dan nggak pernah disimpan di mana pun. Kalau lupa, datanya hilang permanen — jadi catat baik-baik.' },
+  { q: 'Bisa diakses dari HP?', a: 'Bisa. Buka URL-nya di browser HP, login pakai email + master password yang sama, datanya langsung kebuka.' },
+  { q: 'Siapa yang bisa lihat password saya?', a: 'Cuma kamu. Bahkan pembuatnya nggak bisa baca, karena enkripsinya zero-knowledge — master password nggak pernah keluar dari perangkat kamu.' },
+  { q: 'Gimana cara nambah login baru?', a: 'Klik "+ Tambah login" atau "+ Tambah", isi judul, username/email, password (bisa pakai generator), dan website (opsional), lalu Simpan.' },
+  { q: 'Apa fungsi field Website?', a: 'Kalau diisi, judul entri jadi link yang bisa diklik — langsung membuka website-nya di tab baru.' },
+  { q: 'Apa itu menu Keamanan?', a: 'Ngecek kesehatan password kamu: berapa yang lemah (terlalu pendek), dipakai ulang di beberapa entri, atau tanpa password. Klik "Perbaiki" buat langsung edit.' },
+  { q: 'Gimana cara backup data saya?', a: 'Buka menu Backup → Unduh backup. File-nya terenkripsi (aman). Buat pulihkan, pakai Impor dengan master password yang sama.' },
+  { q: 'Kenapa cuma bisa 1 akun?', a: 'Ini brankas pribadi single-user. Setelah akun pertama dibuat, registrasi otomatis ketutup — jadi nggak ada yang bisa daftar atau masuk selain kamu.' },
+];
+function FaqView() {
+  return (
+    <div className="wrap">
+      <div className="faq">
+        <p className="faq-intro">Hal-hal yang sering ditanyain soal brankas ini.</p>
+        {FAQS.map((f, i) => (
+          <details key={i} className="faq-item">
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Item row ───────────────────────── */
 function ItemRow({
   item,
   onCopy,
@@ -349,13 +571,9 @@ function LinkIcon() { return <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 
 function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>; }
 function TrashIcon() { return <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>; }
 
-const GEN_LABELS: Record<string, string> = {
-  lower: 'kecil',
-  upper: 'besar',
-  digit: 'angka',
-  symbol: 'simbol',
-};
+const GEN_LABELS: Record<string, string> = { lower: 'kecil', upper: 'besar', digit: 'angka', symbol: 'simbol' };
 
+/* ───────────────────────── Modal ───────────────────────── */
 function ItemModal({
   initial,
   id,
@@ -370,13 +588,7 @@ function ItemModal({
   const [f, setF] = useState<Fields>(initial);
   const [showGen, setShowGen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [opts, setOpts] = useState<GenOpts>({
-    length: 18,
-    lower: true,
-    upper: true,
-    digit: true,
-    symbol: true,
-  });
+  const [opts, setOpts] = useState<GenOpts>({ length: 18, lower: true, upper: true, digit: true, symbol: true });
 
   const set = (k: keyof Fields, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -393,30 +605,14 @@ function ItemModal({
         <h2>{id ? 'Edit entri' : 'Entri baru'}</h2>
         <form onSubmit={submit}>
           <label className="fld">Judul</label>
-          <input
-            className="input"
-            required
-            value={f.title}
-            onChange={(e) => set('title', e.target.value)}
-            placeholder="Facebook"
-          />
+          <input className="input" required value={f.title} onChange={(e) => set('title', e.target.value)} placeholder="Facebook" />
 
           <label className="fld">Username / email</label>
-          <input
-            className="input"
-            value={f.username}
-            onChange={(e) => set('username', e.target.value)}
-            placeholder="kamu@email.com"
-          />
+          <input className="input" value={f.username} onChange={(e) => set('username', e.target.value)} placeholder="kamu@email.com" />
 
           <label className="fld">Password</label>
           <div className="row2">
-            <input
-              className="input"
-              value={f.password}
-              onChange={(e) => set('password', e.target.value)}
-              placeholder="••••••••"
-            />
+            <input className="input" value={f.password} onChange={(e) => set('password', e.target.value)} placeholder="••••••••" />
             <button type="button" className="btn sec" onClick={() => setShowGen((s) => !s)}>
               ⚙
             </button>
@@ -438,19 +634,13 @@ function ItemModal({
                     min={8}
                     max={64}
                     value={opts.length}
-                    onChange={(e) =>
-                      setOpts((o) => ({ ...o, length: Math.max(8, Math.min(64, +e.target.value || 8)) }))
-                    }
+                    onChange={(e) => setOpts((o) => ({ ...o, length: Math.max(8, Math.min(64, +e.target.value || 8)) }))}
                     style={{ width: 56, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
                   />
                 </label>
                 {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
                   <label key={k}>
-                    <input
-                      type="checkbox"
-                      checked={opts[k]}
-                      onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))}
-                    />
+                    <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
                     {GEN_LABELS[k]}
                   </label>
                 ))}
@@ -459,29 +649,13 @@ function ItemModal({
           )}
 
           <label className="fld">Website (opsional)</label>
-          <input
-            className="input"
-            value={f.url}
-            onChange={(e) => set('url', e.target.value)}
-            placeholder="facebook.com"
-          />
+          <input className="input" value={f.url} onChange={(e) => set('url', e.target.value)} placeholder="facebook.com" />
 
           <label className="fld">Kategori (opsional)</label>
-          <input
-            className="input"
-            value={f.category}
-            onChange={(e) => set('category', e.target.value)}
-            placeholder="Sosial"
-          />
+          <input className="input" value={f.category} onChange={(e) => set('category', e.target.value)} placeholder="Sosial" />
 
           <label className="fld">Catatan (opsional)</label>
-          <textarea
-            className="input"
-            rows={3}
-            value={f.notes}
-            onChange={(e) => set('notes', e.target.value)}
-            style={{ resize: 'vertical' }}
-          />
+          <textarea className="input" rows={3} value={f.notes} onChange={(e) => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
 
           <div className="modal-acts">
             <button type="button" className="btn ghost" onClick={onClose}>
