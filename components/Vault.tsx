@@ -209,59 +209,57 @@ function ItemRow({
 }) {
   const [show, setShow] = useState(false);
   const initial = (item.title || item.username || '?').charAt(0).toUpperCase();
+  const href = /^https?:\/\//.test(item.url) ? item.url : `https://${item.url}`;
   return (
     <div className="item">
-      <div className="head">
-        <div className="ic">{initial}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="ttl">{item.title || '(tanpa judul)'}</span>
-            {item.category && <span className="cat">{item.category}</span>}
-          </div>
-          {item.username && <div className="usr">{item.username}</div>}
-          {show && item.password && (
-            <div className="usr" style={{ color: 'var(--text)', fontFamily: 'monospace' }}>
-              {item.password}
-            </div>
-          )}
+      <div className="ic">{initial}</div>
+      <div className="info">
+        <div className="title-row">
+          <span className="ttl">{item.title || '(tanpa judul)'}</span>
+          {item.category && <span className="cat">{item.category}</span>}
         </div>
+        {item.username && <div className="usr">{item.username}</div>}
+        {show && item.password && <div className="pw">{item.password}</div>}
       </div>
       <div className="acts">
         {item.username && (
-          <button className="btn sec sm" onClick={() => onCopy(item.username, 'Username')}>
-            Salin user
+          <button className="iconbtn" title="Salin username" onClick={() => onCopy(item.username, 'Username')}>
+            <UserIcon />
           </button>
         )}
         {item.password && (
-          <button className="btn sm" onClick={() => onCopy(item.password, 'Password')}>
-            Salin pass
+          <button className="iconbtn primary" title="Salin password" onClick={() => onCopy(item.password, 'Password')}>
+            <CopyIcon />
           </button>
         )}
         {item.password && (
-          <button className="btn ghost sm" onClick={() => setShow((s) => !s)}>
-            {show ? 'Sembunyi' : 'Lihat'}
+          <button className="iconbtn" title={show ? 'Sembunyikan' : 'Lihat password'} onClick={() => setShow((s) => !s)}>
+            {show ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         )}
         {item.url && (
-          <a
-            className="btn ghost sm"
-            href={/^https?:\/\//.test(item.url) ? item.url : `https://${item.url}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Buka
+          <a className="iconbtn" title="Buka situs" href={href} target="_blank" rel="noreferrer">
+            <LinkIcon />
           </a>
         )}
-        <button className="btn ghost sm" onClick={onEdit}>
-          Edit
+        <button className="iconbtn" title="Edit" onClick={onEdit}>
+          <EditIcon />
         </button>
-        <button className="btn ghost sm" onClick={onDelete} style={{ color: 'var(--danger)' }}>
-          Hapus
+        <button className="iconbtn danger" title="Hapus" onClick={onDelete}>
+          <TrashIcon />
         </button>
       </div>
     </div>
   );
 }
+
+function UserIcon() { return <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>; }
+function CopyIcon() { return <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>; }
+function EyeIcon() { return <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>; }
+function EyeOffIcon() { return <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7c2 0 3.8.6 5.3 1.6M22 12s-4 7-10 7c-2 0-3.8-.6-5.3-1.6" /><path d="m4 4 16 16" /></svg>; }
+function LinkIcon() { return <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></svg>; }
+function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>; }
+function TrashIcon() { return <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>; }
 
 const GEN_LABELS: Record<string, string> = {
   lower: 'kecil',
