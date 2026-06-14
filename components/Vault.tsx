@@ -21,6 +21,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<string | null>(null);
+  const [view, setView] = useState<'vault' | 'faq'>('vault');
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -113,25 +114,28 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         <div className="side-brand">
           🔐 my<span>Vault</span>
         </div>
-        <button className="btn" style={{ width: '100%', marginBottom: 14 }} onClick={() => setEditing('new')}>
+        <button
+          className="btn"
+          style={{ width: '100%', marginBottom: 16 }}
+          onClick={() => {
+            setView('vault');
+            setEditing('new');
+          }}
+        >
           + Tambah login
         </button>
+
+        <p className="side-label">Menu</p>
         <nav className="side-nav">
-          <button className={`snav ${cat === null ? 'active' : ''}`} onClick={() => setCat(null)}>
-            <span>📁 Semua item</span>
+          <button className={`snav ${view === 'vault' ? 'active' : ''}`} onClick={() => setView('vault')}>
+            <span>🔑 Brankas</span>
             <span className="cnt">{items.length}</span>
           </button>
-          {categories.map((c) => (
-            <button
-              key={c.name}
-              className={`snav ${cat === c.name ? 'active' : ''}`}
-              onClick={() => setCat(c.name)}
-            >
-              <span>🏷️ {c.name}</span>
-              <span className="cnt">{c.count}</span>
-            </button>
-          ))}
+          <button className={`snav ${view === 'faq' ? 'active' : ''}`} onClick={() => setView('faq')}>
+            <span>❓ FAQ</span>
+          </button>
         </nav>
+
         <div className="side-foot">
           <button className="btn ghost" style={{ width: '100%' }} onClick={onLock}>
             🔒 Kunci brankas
@@ -141,45 +145,74 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
       </aside>
 
       <div className="main2">
-        <div className="top">
-          <div className="search">
-            <input placeholder="Cari…" value={query} onChange={(e) => setQuery(e.target.value)} />
-          </div>
-          <div className="sp" />
-          <button className="btn sm" onClick={() => setEditing('new')}>
-            + Tambah
-          </button>
-          <button className="btn ghost sm only-mobile" onClick={onLock}>
-            Kunci
-          </button>
-        </div>
+        {view === 'vault' ? (
+          <>
+            <div className="top">
+              <div className="search">
+                <input placeholder="Cari…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              </div>
+              <div className="sp" />
+              <button className="btn sm" onClick={() => setEditing('new')}>
+                + Tambah
+              </button>
+              <button className="btn ghost sm only-mobile" onClick={onLock}>
+                Kunci
+              </button>
+            </div>
 
-        <div className="wrap">
-          {cat && (
-            <div className="crumb">
-              {cat} <button onClick={() => setCat(null)}>✕</button>
+            <div className="wrap">
+              {categories.length > 0 && (
+                <div className="chips">
+                  <button className={`chip ${cat === null ? 'active' : ''}`} onClick={() => setCat(null)}>
+                    Semua ({items.length})
+                  </button>
+                  {categories.map((c) => (
+                    <button
+                      key={c.name}
+                      className={`chip ${cat === c.name ? 'active' : ''}`}
+                      onClick={() => setCat(c.name)}
+                    >
+                      {c.name} ({c.count})
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {loading ? (
+                <div className="empty">Mendekripsi…</div>
+              ) : shown.length === 0 ? (
+                <div className="empty">
+                  {items.length === 0
+                    ? 'Brankas kosong. Klik + Tambah untuk menyimpan login.'
+                    : 'Nggak ada hasil.'}
+                </div>
+              ) : (
+                shown.map((it) => (
+                  <ItemRow
+                    key={it.id}
+                    item={it}
+                    onCopy={copy}
+                    onEdit={() => setEditing(it)}
+                    onDelete={() => remove(it.id)}
+                  />
+                ))
+              )}
             </div>
-          )}
-          {loading ? (
-            <div className="empty">Mendekripsi…</div>
-          ) : shown.length === 0 ? (
-            <div className="empty">
-              {items.length === 0
-                ? 'Brankas kosong. Klik + Tambah untuk menyimpan login.'
-                : 'Nggak ada hasil.'}
+          </>
+        ) : (
+          <>
+            <div className="top">
+              <div style={{ fontWeight: 700, fontSize: 16 }}>❓ Pertanyaan Umum (FAQ)</div>
+              <div className="sp" />
+              <button className="btn ghost sm only-mobile" onClick={onLock}>
+                Kunci
+              </button>
             </div>
-          ) : (
-            shown.map((it) => (
-              <ItemRow
-                key={it.id}
-                item={it}
-                onCopy={copy}
-                onEdit={() => setEditing(it)}
-                onDelete={() => remove(it.id)}
-              />
-            ))
-          )}
-        </div>
+            <div className="wrap">
+              <Faq />
+            </div>
+          </>
+        )}
       </div>
 
       {editing && (
@@ -192,6 +225,55 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
       )}
 
       {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+const FAQS = [
+  {
+    q: 'Apa itu myVault?',
+    a: 'Brankas password pribadi yang menyimpan semua login (ID & password) kamu di satu tempat, terenkripsi penuh.',
+  },
+  {
+    q: 'Seberapa aman data saya?',
+    a: 'Sangat aman. Semua dienkripsi di perangkat kamu pakai AES-256-GCM sebelum dikirim. Server cuma menyimpan ciphertext yang teracak — nggak bisa dibaca siapa pun.',
+  },
+  {
+    q: 'Gimana kalau saya lupa master password?',
+    a: 'Sayangnya nggak bisa direset. Master password adalah satu-satunya kunci dan nggak pernah disimpan di mana pun. Kalau lupa, datanya hilang permanen — jadi catat baik-baik.',
+  },
+  {
+    q: 'Bisa diakses dari HP?',
+    a: 'Bisa. Buka URL-nya di browser HP, login pakai email + master password yang sama, datanya langsung kebuka.',
+  },
+  {
+    q: 'Siapa yang bisa lihat password saya?',
+    a: 'Cuma kamu. Bahkan pembuatnya nggak bisa baca, karena enkripsinya zero-knowledge — master password nggak pernah keluar dari perangkat kamu.',
+  },
+  {
+    q: 'Gimana cara nambah login baru?',
+    a: 'Klik "+ Tambah login" atau "+ Tambah", isi judul, username/email, password (bisa pakai generator), dan website (opsional), lalu Simpan.',
+  },
+  {
+    q: 'Apa fungsi field Website?',
+    a: 'Kalau diisi, judul entri jadi link yang bisa diklik — langsung membuka website-nya di tab baru.',
+  },
+  {
+    q: 'Kenapa cuma bisa 1 akun?',
+    a: 'Ini brankas pribadi single-user. Setelah akun pertama dibuat, registrasi otomatis ketutup — jadi nggak ada yang bisa daftar atau masuk selain kamu.',
+  },
+];
+
+function Faq() {
+  return (
+    <div className="faq">
+      <p className="faq-intro">Hal-hal yang sering ditanyain soal brankas ini.</p>
+      {FAQS.map((f, i) => (
+        <details key={i} className="faq-item">
+          <summary>{f.q}</summary>
+          <p>{f.a}</p>
+        </details>
+      ))}
     </div>
   );
 }
