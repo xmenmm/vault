@@ -44,7 +44,14 @@ export function SplineScene({ scene, className }: SplineSceneProps) {
           </div>
         }
       >
-        <Spline scene={scene} className={className} onError={() => setFailed(true)} />
+        <Spline
+          scene={scene}
+          className={className}
+          // Defer to a microtask: react-spline may fire onError during its own
+          // render, and calling setState synchronously then triggers React's
+          // "Cannot update a component while rendering a different component".
+          onError={() => queueMicrotask(() => setFailed(true))}
+        />
       </Suspense>
     </SplineBoundary>
   );

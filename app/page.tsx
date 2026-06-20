@@ -155,6 +155,30 @@ export default function Landing() {
         </Link>
       </section>
 
+      {/* ── Logo cloud (marquee) ── */}
+      <section className="relative w-full px-6 sm:px-12 lg:px-20 pb-24 pt-4">
+        <h2 className="text-3xl md:text-4xl font-bold text-center">Satu brankas buat semua akunmu.</h2>
+        <p className="mt-3 text-neutral-400 text-center max-w-xl mx-auto">
+          Google, GitHub, Instagram, bank — apa pun. Simpan semua login favoritmu, aman di satu tempat.
+        </p>
+        <div className="logo-cloud-mask mt-12 overflow-hidden">
+          <div className="logo-track">
+            {[...LOGOS, ...LOGOS].map((l, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={`https://cdn.simpleicons.org/${l.slug}/8a93a6`}
+                alt={l.name}
+                width={28}
+                height={28}
+                loading="lazy"
+                className="mx-9 h-7 w-auto shrink-0 opacity-70 hover:opacity-100 transition"
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Footer ── */}
       <footer className="relative border-t border-white/5">
         <div className="w-full px-6 sm:px-12 lg:px-20 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
@@ -189,6 +213,23 @@ const SECURITY = [
   'Enkripsi terautentikasi AES-256-GCM di tiap entri.',
   'Row-level security mengisolasi tiap akun di database.',
   'Nggak ada reset password — karena cuma kamu yang bisa dekripsi.',
+];
+
+// Brands whose logins you can keep in the vault — rendered as a grayscale
+// marquee. Monochrome SVGs from the simple-icons CDN, tinted to --muted.
+const LOGOS = [
+  { name: 'Google', slug: 'google' },
+  { name: 'GitHub', slug: 'github' },
+  { name: 'Instagram', slug: 'instagram' },
+  { name: 'Facebook', slug: 'facebook' },
+  { name: 'X', slug: 'x' },
+  { name: 'Netflix', slug: 'netflix' },
+  { name: 'Spotify', slug: 'spotify' },
+  { name: 'YouTube', slug: 'youtube' },
+  { name: 'PayPal', slug: 'paypal' },
+  { name: 'Discord', slug: 'discord' },
+  { name: 'WhatsApp', slug: 'whatsapp' },
+  { name: 'TikTok', slug: 'tiktok' },
 ];
 
 /* ── inline icons ── */

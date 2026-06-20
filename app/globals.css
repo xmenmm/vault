@@ -54,6 +54,26 @@ body {
 a { color: inherit; }
 button { font-family: inherit; }
 
+/* ── Landing logo cloud (infinite marquee) ── */
+.logo-cloud-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+.logo-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  animation: logo-scroll 34s linear infinite;
+}
+.logo-cloud-mask:hover .logo-track { animation-play-state: paused; }
+@keyframes logo-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-track { animation: none; transform: translateX(0); }
+}
+
 .btn {
   background: var(--accent);
   color: #fff;

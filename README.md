@@ -12,8 +12,15 @@ the browser. Built for Supabase + Vercel, usable from desktop and phone.
     Supabase (as the login password). One-way: the server can't recover your
     master password from it.
 - Supabase stores **ciphertext only** (`iv:ciphertext`). Row Level Security keeps
-  each user's rows private. The encryption key exists only in memory and is wiped
-  on lock / refresh / 10-minute idle.
+  each user's rows private.
+- **Session caching (trade-off, read this):** to avoid re-entering the master
+  password on every refresh, the derived encryption key is cached in the browser
+  `localStorage` (key `vault-k`). It is removed on **Lock**, after **30 minutes
+  idle**, and **expires after 7 days** — whichever comes first. Consequence: while
+  that cache is alive, anyone with access to the device (or via XSS) can open the
+  vault **without** the master password. The master password itself is still never
+  stored or sent. If you want strictly memory-only (re-login every refresh),
+  remove the persistence in `app/providers.tsx`.
 - **There is no password reset.** Lose the master password → the data is gone.
   That's the point of zero-knowledge.
 

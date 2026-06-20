@@ -136,7 +136,18 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     try {
       await navigator.clipboard.writeText(text);
       flash(`${label} disalin`);
-      window.setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000);
+      // Auto-clear after 30s — but only if the clipboard STILL holds what we
+      // copied, so we don't wipe something the user copied in the meantime.
+      // If the clipboard isn't readable (permission/focus), leave it untouched.
+      window.setTimeout(async () => {
+        try {
+          if ((await navigator.clipboard.readText()) === text) {
+            await navigator.clipboard.writeText('');
+          }
+        } catch {
+          /* clipboard not readable — don't clobber it */
+        }
+      }, 30000);
     } catch {
       flash('Gagal menyalin');
     }
@@ -211,7 +222,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
           <button className="btn ghost" style={{ width: '100%' }} onClick={onLock}>
             🔒 Kunci brankas
           </button>
-          <p className="side-note">Terkunci otomatis setelah 10 menit idle</p>
+          <p className="side-note">Terkunci otomatis setelah 30 menit idle</p>
         </div>
       </aside>
 
@@ -280,7 +291,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
         {view === 'security' && <SecurityView items={items} onEdit={(it) => setEditing(it)} />}
         {view === 'generator' && <GeneratorView onCopy={copy} />}
-        {view === 'backup' && <BackupView flash={flash} reload={load} />}
+        {view === 'backup' && <BackupView flash={flash} reload={load} encKey={keys.encKey} />}
         {view === 'settings' && (
           <SettingsView items={items} onLock={onLock} onDeleteAll={deleteAll} theme={theme} onToggleTheme={toggleTheme} />
         )}
@@ -511,7 +522,15 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
 }
 
 /* ───────────────────────── Backup ───────────────────────── */
-function BackupView({ flash, reload }: { flash: (m: string) => void; reload: () => void }) {
+function BackupView({
+  flash,
+  reload,
+  encKey,
+}: {
+  flash: (m: string) => void;
+  reload: () => void;
+  encKey: CryptoKey;
+}) {
   const [busy, setBusy] = useState(false);
 
   async function exportBackup() {
@@ -540,6 +559,22 @@ function BackupView({ flash, reload }: { flash: (m: string) => void; reload: () 
     try {
       const parsed = JSON.parse(await file.text());
       const rows: { data?: string }[] = parsed.items ?? [];
+
+      // Guard: make sure this backup was made with the SAME master password.
+      // Try to decrypt the first real ciphertext; if it fails, the keys differ
+      // and importing would just store invisible, undecryptable rows.
+      const sample = rows.find((r) => typeof r.data === 'string')?.data;
+      if (sample) {
+        try {
+          await decryptStr(encKey, sample);
+        } catch {
+          flash('Backup pakai master password berbeda — impor dibatalkan');
+          setBusy(false);
+          e.target.value = '';
+          return;
+        }
+      }
+
       let n = 0;
       for (const r of rows) {
         if (typeof r.data === 'string') {
@@ -616,7 +651,7 @@ function SettingsView({
         <div className="kv"><span>Favorit</span><b>{items.filter((i) => i.favorite).length}</b></div>
         <div className="kv"><span>Mode</span><b>Single-user (pribadi)</b></div>
         <div className="kv"><span>Enkripsi</span><b>AES-256-GCM · zero-knowledge</b></div>
-        <div className="kv"><span>Kunci otomatis</span><b>10 menit idle</b></div>
+        <div className="kv"><span>Kunci otomatis</span><b>30 menit idle</b></div>
         <button className="btn sec" style={{ marginTop: 16 }} onClick={onLock}>
           🔒 Kunci sekarang
         </button>

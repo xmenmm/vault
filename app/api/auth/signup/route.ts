@@ -25,8 +25,17 @@ export async function POST(req: NextRequest) {
   );
 
   // Single-user mode: once the only account exists, registration is closed.
-  const { data: existing } = await admin.auth.admin.listUsers({ page: 1, perPage: 1 });
-  if ((existing?.users?.length ?? 0) > 0) {
+  // The SDK returns { data: null, error } on network failure (it doesn't throw),
+  // so if we can't verify there are zero users we must NOT create one — fail
+  // closed, otherwise an unreachable backend would let the gate be bypassed.
+  const { data: existing, error: listErr } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1,
+  });
+  if (listErr || !existing) {
+    return NextResponse.json({ error: 'Service unavailable, try again' }, { status: 503 });
+  }
+  if (existing.users.length > 0) {
     return NextResponse.json({ error: 'Registration is closed' }, { status: 403 });
   }
 
