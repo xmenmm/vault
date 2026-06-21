@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { deriveKeys, type Keys } from '@/lib/crypto';
-import { SplineScene } from '@/components/ui/splite';
+import { VaultPreview } from '@/components/VaultPreview';
 
 export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   const [setup, setSetup] = useState<boolean | null>(null);
@@ -83,11 +83,8 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
           🔐 my<span className="text-[#5b8cff]">Vault</span>
         </Link>
 
-        <div className="relative z-0 flex-1 min-h-[300px] -my-2">
-          <SplineScene
-            scene="/robot.splinecode"
-            className="!absolute inset-0 h-full w-full scale-110"
-          />
+        <div className="relative z-0 flex-1 min-h-[300px] -my-2 flex items-center justify-center">
+          <VaultPreview />
         </div>
 
         <div className="relative z-10">
