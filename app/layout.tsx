@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: 'myVault — brankas password terenkripsi',
   description: 'Password kamu, terenkripsi di perangkat kamu.',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'myVault' },
+  // Modern equivalent of apple-mobile-web-app-capable (Chrome deprecation notice).
+  other: { 'mobile-web-app-capable': 'yes' },
 };
 
 export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#05070c' };
