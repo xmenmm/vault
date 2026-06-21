@@ -14,7 +14,7 @@ type Fields = {
   category: string;
   favorite?: boolean;
 };
-type Item = Fields & { id: string };
+type Item = Fields & { id: string; createdAt?: string; updatedAt?: string };
 type View = 'overview' | 'vault' | 'search' | 'favorites' | 'security' | 'generator' | 'backup' | 'settings' | 'faq';
 
 const EMPTY: Fields = { title: '', username: '', password: '', url: '', notes: '', category: '', favorite: false };
@@ -70,12 +70,14 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
       setLoading(false);
       return;
     }
-    const { items: rows } = (await res.json()) as { items: { id: string; data: string }[] };
+    const { items: rows } = (await res.json()) as {
+      items: { id: string; data: string; created_at?: string; updated_at?: string }[];
+    };
     const out: Item[] = [];
     for (const r of rows ?? []) {
       try {
         const f = JSON.parse(await decryptStr(keys.encKey, r.data)) as Fields;
-        out.push({ ...EMPTY, ...f, id: r.id });
+        out.push({ ...EMPTY, ...f, id: r.id, createdAt: r.created_at, updatedAt: r.updated_at });
       } catch {
         // kunci salah / data rusak — lewati
       }
@@ -106,16 +108,28 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     return () => window.removeEventListener('keydown', onKey);
   }, [editing]);
 
-  async function save(fields: Fields, id: string | null) {
-    const data = await encryptStr(keys.encKey, JSON.stringify(fields));
-    const res = await fetch('/api/vault', {
-      method: id ? 'PATCH' : 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(id ? { id, data } : { data }),
-    });
-    setEditing(null);
-    flash(res.ok ? 'Tersimpan' : 'Gagal menyimpan');
-    load();
+  // Returns true only if the save persisted. The modal stays open on failure so
+  // the user's input isn't lost (e.g. a network blip) and they can retry.
+  async function save(fields: Fields, id: string | null): Promise<boolean> {
+    try {
+      const data = await encryptStr(keys.encKey, JSON.stringify(fields));
+      const res = await fetch('/api/vault', {
+        method: id ? 'PATCH' : 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(id ? { id, data } : { data }),
+      });
+      if (!res.ok) {
+        flash('Gagal menyimpan — coba lagi');
+        return false;
+      }
+      setEditing(null);
+      flash('Tersimpan');
+      load();
+      return true;
+    } catch {
+      flash('Gagal menyimpan — cek koneksi');
+      return false;
+    }
   }
 
   async function toggleFav(it: Item) {
@@ -323,6 +337,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         <ItemModal
           initial={editing === 'new' ? EMPTY : editing}
           id={editing === 'new' ? null : editing.id}
+          meta={editing === 'new' ? undefined : { createdAt: editing.createdAt, updatedAt: editing.updatedAt }}
           onClose={() => setEditing(null)}
           onSave={save}
         />
@@ -718,6 +733,31 @@ function FaqView() {
   );
 }
 
+// Relative time in Indonesian, e.g. "3 hari lalu". Runs in the browser.
+function timeAgo(iso?: string): string {
+  if (!iso) return '';
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return 'baru saja';
+  const units: [number, string][] = [
+    [60, 'menit'],
+    [3600, 'jam'],
+    [86400, 'hari'],
+    [2592000, 'bulan'],
+    [31536000, 'tahun'],
+  ];
+  let label = 'menit', value = Math.floor(diff / 60);
+  for (let i = 0; i < units.length; i++) {
+    const [sec, name] = units[i];
+    const next = units[i + 1];
+    if (!next || diff < next[0]) {
+      value = Math.floor(diff / sec);
+      label = name;
+      break;
+    }
+  }
+  return `${value} ${label} lalu`;
+}
+
 /* ───────────────────────── Item row ───────────────────────── */
 function hl(text: string, q?: string): React.ReactNode {
   if (!q) return text;
@@ -831,13 +871,15 @@ const GEN_LABELS: Record<string, string> = { lower: 'kecil', upper: 'besar', dig
 function ItemModal({
   initial,
   id,
+  meta,
   onClose,
   onSave,
 }: {
   initial: Fields;
   id: string | null;
+  meta?: { createdAt?: string; updatedAt?: string };
   onClose: () => void;
-  onSave: (f: Fields, id: string | null) => void;
+  onSave: (f: Fields, id: string | null) => Promise<boolean>;
 }) {
   const [f, setF] = useState<Fields>(initial);
   const [showGen, setShowGen] = useState(false);
@@ -859,8 +901,9 @@ function ItemModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    await onSave(f, id);
-    setBusy(false);
+    const ok = await onSave(f, id);
+    // On success the modal unmounts; on failure keep it open + re-enable Simpan.
+    if (!ok) setBusy(false);
   }
 
   return (
@@ -927,6 +970,12 @@ function ItemModal({
           <label className="fld">Catatan (opsional)</label>
           <textarea className="input" rows={3} value={f.notes} onChange={(e) => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
 
+          {meta?.updatedAt && (
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '14px 0 0', textAlign: 'right' }}>
+              Diperbarui {timeAgo(meta.updatedAt)}
+              {meta.createdAt ? ` · dibuat ${timeAgo(meta.createdAt)}` : ''}
+            </p>
+          )}
           <div className="modal-acts">
             <button type="button" className="btn ghost" onClick={onClose}>
               Batal

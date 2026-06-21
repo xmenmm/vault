@@ -16,7 +16,7 @@ export async function GET() {
   if (!o) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const { data, error } = await admin()
     .from('vault_items')
-    .select('id,data')
+    .select('id,data,created_at,updated_at')
     .eq('owner', o)
     .order('updated_at', { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
