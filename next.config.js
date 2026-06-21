@@ -7,16 +7,15 @@ const isDev = process.env.NODE_ENV === 'development';
 // for HMR; production is tighter ('wasm-unsafe-eval' only, for the Spline 3D).
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://www.gstatic.com ${isDev ? "'unsafe-eval'" : "'wasm-unsafe-eval'"}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https://www.google.com https://*.gstatic.com https://cdn.simpleicons.org https://*.spline.design",
+  // img only: Google favicons (item icons) + simple-icons (brand logos).
+  "img-src 'self' data: https://www.google.com https://*.gstatic.com https://cdn.simpleicons.org",
   "font-src 'self'",
-  // The Spline 3D robot needs: its WASM runtime (unpkg), the Draco geometry
-  // decoder (gstatic) and scene assets (spline.design). These are all
-  // read-only CDNs / static asset hosts — not data sinks — so allowing them
-  // for fetch can't be used to exfiltrate the localStorage key.
-  `connect-src 'self' https://unpkg.com https://www.gstatic.com https://*.spline.design${isDev ? ' ws: wss:' : ''}`,
-  "worker-src 'self' blob: https://www.gstatic.com",
+  // No external runtime fetches — the browser only talks to this app's own
+  // API, so connect-src 'self' blocks any attempt to exfiltrate the key.
+  `connect-src 'self'${isDev ? ' ws: wss:' : ''}`,
+  "worker-src 'self' blob:",
   "frame-src 'none'",
   "object-src 'none'",
   "base-uri 'self'",
