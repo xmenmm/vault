@@ -131,6 +131,14 @@ button { font-family: inherit; }
 .card-premium:hover { transform: translateY(-4px); }
 .card-premium:hover::before { opacity: 1; }
 
+/* Hero product preview float */
+@keyframes vaultfloat {
+  0%, 100% { transform: translateY(-7px); }
+  50% { transform: translateY(7px); }
+}
+.vault-float { animation: vaultfloat 6.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .vault-float { animation: none; } }
+
 .btn {
   background: var(--accent);
   color: #fff;

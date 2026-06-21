@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { SplineScene } from '@/components/ui/splite';
+import { VaultPreview } from '@/components/VaultPreview';
 import { Reveal } from '@/components/Reveal';
 
 export default function Landing() {
@@ -69,12 +69,8 @@ export default function Landing() {
             </div>
           </Reveal>
 
-          <div className="relative h-[420px] md:h-[560px] lg:h-[680px]">
-            <div className="pointer-events-none absolute inset-0 m-auto h-72 w-72 rounded-full bg-[#5b8cff]/20 blur-[110px]" />
-            <SplineScene
-              scene="/robot.splinecode"
-              className="!absolute inset-0 h-full w-full scale-110 lg:scale-125"
-            />
+          <div className="relative h-[440px] md:h-[520px] lg:h-[580px]">
+            <VaultPreview />
           </div>
         </div>
       </section>
