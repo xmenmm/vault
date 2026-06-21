@@ -74,6 +74,63 @@ button { font-family: inherit; }
   .logo-track { animation: none; transform: translateX(0); }
 }
 
+/* ── Premium landing utilities ── */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 100%);
+  mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 100%);
+}
+.link-underline { position: relative; }
+.link-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, #5b8cff, #a78bff);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.link-underline:hover::after { transform: scaleX(1); }
+@keyframes shine {
+  0% { transform: translateX(-130%) skewX(-12deg); }
+  70%, 100% { transform: translateX(280%) skewX(-12deg); }
+}
+.btn-shine { position: relative; overflow: hidden; isolation: isolate; }
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: translateX(-130%) skewX(-12deg);
+  pointer-events: none;
+}
+.btn-shine:hover::after { animation: shine 0.85s ease; }
+.card-premium { position: relative; isolation: isolate; transition: transform 0.3s ease, background 0.3s ease; }
+.card-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(150deg, rgba(125, 162, 255, 0.55), rgba(255, 255, 255, 0.05) 45%, transparent 72%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.card-premium:hover { transform: translateY(-4px); }
+.card-premium:hover::before { opacity: 1; }
+
 .btn {
   background: var(--accent);
   color: #fff;
