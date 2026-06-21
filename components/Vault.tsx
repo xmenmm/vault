@@ -85,6 +85,24 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     load();
   }, [load]);
 
+  // Keyboard shortcuts: Ctrl/Cmd+K or "/" jumps to Cari (search) and focuses it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (editing) return; // don't hijack keys while the modal is open
+      const el = e.target as HTMLElement | null;
+      const typing =
+        !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      const isSearch = ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && !typing);
+      if (isSearch) {
+        e.preventDefault();
+        setView('search');
+        window.setTimeout(() => document.querySelector<HTMLInputElement>('.search-big')?.focus(), 0);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing]);
+
   async function save(fields: Fields, id: string | null) {
     const data = await encryptStr(keys.encKey, JSON.stringify(fields));
     const res = await fetch('/api/vault', {
@@ -826,6 +844,15 @@ function ItemModal({
 
   const set = (k: keyof Fields, v: string) => setF((p) => ({ ...p, [k]: v }));
 
+  // Esc closes the modal (matches the click-outside-to-close behaviour).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -839,7 +866,7 @@ function ItemModal({
         <h2>{id ? 'Edit entri' : 'Entri baru'}</h2>
         <form onSubmit={submit}>
           <label className="fld">Judul</label>
-          <input className="input" required value={f.title} onChange={(e) => set('title', e.target.value)} placeholder="Facebook" />
+          <input className="input" autoFocus required value={f.title} onChange={(e) => set('title', e.target.value)} placeholder="Facebook" />
 
           <label className="fld">Username / email</label>
           <input className="input" value={f.username} onChange={(e) => set('username', e.target.value)} placeholder="kamu@email.com" />
