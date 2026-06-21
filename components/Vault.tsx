@@ -47,9 +47,12 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   }, []);
 
   useEffect(() => {
-    const saved = (localStorage.getItem('vault-theme') as 'dark' | 'light') || 'dark';
-    setTheme(saved);
-    document.documentElement.dataset.theme = saved;
+    // Respect a saved choice; otherwise follow the OS dark/light preference.
+    const saved = localStorage.getItem('vault-theme') as 'dark' | 'light' | null;
+    const system = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    const initial = saved || system;
+    setTheme(initial);
+    document.documentElement.dataset.theme = initial;
   }, []);
 
   function toggleTheme() {
