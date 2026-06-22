@@ -659,3 +659,62 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
   padding: 9px 11px;
   line-height: 1.5;
 }
+
+/* ── Orbital loader (vault decrypting) ── */
+.orbit-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(900px 520px at 50% -10%, rgba(91, 140, 255, 0.14), transparent 60%),
+    radial-gradient(700px 420px at 50% 110%, rgba(124, 92, 255, 0.12), transparent 60%),
+    var(--bg);
+}
+.orbit-wrap { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+.orbit-loader { position: relative; width: 300px; height: 300px; display: grid; place-items: center; }
+.orbit-ring { position: absolute; width: 264px; height: 264px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.08); }
+.orbit-core {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7c5cff, #5b8cff, #2bb079);
+  box-shadow: 0 0 44px rgba(91, 140, 255, 0.55);
+  animation: orbit-pulse 2.2s ease-in-out infinite;
+}
+.orbit-core::before,
+.orbit-core::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(123, 162, 255, 0.5);
+  animation: orbit-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.orbit-core::after { animation-delay: 0.7s; }
+.orbit-core-dot { width: 22px; height: 22px; border-radius: 50%; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); }
+.orbit-spin { position: absolute; width: 100%; height: 100%; animation: orbit-rotate 16s linear infinite; }
+.orbit-ico {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  margin: -19px;
+  padding: 7px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(4px);
+  animation: orbit-rotate 16s linear infinite reverse;
+}
+.orbit-label { color: var(--muted); font-size: 14px; letter-spacing: 0.02em; }
+@keyframes orbit-rotate { to { transform: rotate(360deg); } }
+@keyframes orbit-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+@keyframes orbit-ping {
+  0% { transform: scale(1); opacity: 0.6; }
+  80%, 100% { transform: scale(2.3); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit-spin, .orbit-ico, .orbit-core, .orbit-core::before, .orbit-core::after { animation: none; }
+}

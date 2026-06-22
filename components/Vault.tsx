@@ -5,6 +5,7 @@ import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
 import { generatePassword, type GenOpts } from '@/lib/pwgen';
 import { strength } from '@/lib/strength';
 import { totpCode, totpRemaining } from '@/lib/totp';
+import { OrbitalLoader } from '@/components/OrbitalLoader';
 
 type CustomField = { label: string; value: string };
 type Fields = {
@@ -40,6 +41,7 @@ const TITLES: Record<View, string> = {
 export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [firstLoad, setFirstLoad] = useState(true);
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<string | null>(null);
   const [view, setView] = useState<View>('overview');
@@ -74,6 +76,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     if (!res.ok) {
       flash('Gagal memuat');
       setLoading(false);
+      setFirstLoad(false);
       return;
     }
     const { items: rows } = (await res.json()) as {
@@ -90,6 +93,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     }
     setItems(out);
     setLoading(false);
+    setFirstLoad(false);
   }, [keys.encKey, flash]);
 
   useEffect(() => {
@@ -231,6 +235,15 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   ];
 
   const isList = view === 'vault' || view === 'favorites';
+
+  // First open: show the orbital loader while the vault fetches + decrypts.
+  if (firstLoad) {
+    return (
+      <div className="orbit-screen">
+        <OrbitalLoader label="Membuka brankas…" />
+      </div>
+    );
+  }
 
   return (
     <div className="shell">
