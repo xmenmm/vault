@@ -544,7 +544,7 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
 
   return (
     <div className="wrap">
-      <div className="panel-card" style={{ maxWidth: 560 }}>
+      <div className="panel-card">
         <div className="row2">
           <input className="input" style={{ marginBottom: 0, fontFamily: 'ui-monospace, monospace', fontSize: 16 }} readOnly value={pw} />
           <button type="button" className="btn" onClick={gen}>
@@ -660,7 +660,7 @@ function BackupView({
 
   return (
     <div className="wrap">
-      <div className="panel-card" style={{ maxWidth: 600 }}>
+      <div className="panel-card">
         <h3 className="pc-title">⬇ Ekspor backup</h3>
         <p className="pc-desc">
           Unduh salinan <b>terenkripsi</b> semua entri kamu (isinya ciphertext — aman). Simpan buat jaga-jaga.
@@ -669,7 +669,7 @@ function BackupView({
           {busy ? 'Memproses…' : 'Unduh backup'}
         </button>
       </div>
-      <div className="panel-card" style={{ maxWidth: 600, marginTop: 14 }}>
+      <div className="panel-card" style={{ marginTop: 14 }}>
         <h3 className="pc-title">⬆ Impor backup</h3>
         <p className="pc-desc">
           Pulihkan dari file backup. Item ditambahkan ke brankas. Wajib pakai <b>master password yang sama</b>.
@@ -732,7 +732,7 @@ function SettingsView({
 
   return (
     <div className="wrap">
-      <div className="panel-card" style={{ maxWidth: 620 }}>
+      <div className="panel-card">
         <h3 className="pc-title">Tampilan</h3>
         <div className="kv">
           <span>Tema</span>
@@ -746,7 +746,7 @@ function SettingsView({
         </div>
       </div>
 
-      <div className="panel-card" style={{ maxWidth: 620, marginTop: 14 }}>
+      <div className="panel-card" style={{ marginTop: 14 }}>
         <h3 className="pc-title">Keamanan &amp; privasi</h3>
         <div className="kv">
           <span>Kunci otomatis saat idle</span>
@@ -779,7 +779,7 @@ function SettingsView({
         </div>
       </div>
 
-      <div className="panel-card" style={{ maxWidth: 620, marginTop: 14 }}>
+      <div className="panel-card" style={{ marginTop: 14 }}>
         <h3 className="pc-title">Info brankas</h3>
         <div className="kv"><span>Total item</span><b>{items.length}</b></div>
         <div className="kv"><span>Favorit</span><b>{items.filter((i) => i.favorite).length}</b></div>
@@ -791,7 +791,7 @@ function SettingsView({
         </button>
       </div>
 
-      <div className="panel-card danger" style={{ maxWidth: 620, marginTop: 14 }}>
+      <div className="panel-card danger" style={{ marginTop: 14 }}>
         <h3 className="pc-title" style={{ color: 'var(--danger)' }}>Zona bahaya</h3>
         <p className="pc-desc">Hapus semua entri di brankas. Tindakan ini permanen dan nggak bisa dibatalkan.</p>
         <button className="btn danger" onClick={onDeleteAll}>
