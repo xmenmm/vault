@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
 import { generatePassword, type GenOpts } from '@/lib/pwgen';
 import { strength } from '@/lib/strength';
+import { totpCode, totpRemaining } from '@/lib/totp';
 
+type CustomField = { label: string; value: string };
 type Fields = {
   title: string;
   username: string;
@@ -13,11 +15,15 @@ type Fields = {
   notes: string;
   category: string;
   favorite?: boolean;
+  totp?: string;
+  customFields?: CustomField[];
 };
 type Item = Fields & { id: string; createdAt?: string; updatedAt?: string };
 type View = 'overview' | 'vault' | 'search' | 'favorites' | 'security' | 'generator' | 'backup' | 'settings' | 'faq';
 
-const EMPTY: Fields = { title: '', username: '', password: '', url: '', notes: '', category: '', favorite: false };
+const EMPTY: Fields = {
+  title: '', username: '', password: '', url: '', notes: '', category: '', favorite: false, totp: '', customFields: [],
+};
 
 const TITLES: Record<View, string> = {
   overview: '🏠 Ringkasan',
@@ -807,9 +813,26 @@ function ItemRow({
             <span className="ttl">{hl(title, highlight)}</span>
           )}
           {item.category && <span className="cat">{hl(item.category, highlight)}</span>}
+          {item.password && <StrengthDot pw={item.password} />}
         </div>
         {item.username && <div className="usr">{hl(item.username, highlight)}</div>}
+        {item.totp && <TotpBadge secret={item.totp} onCopy={onCopy} />}
         {show && item.password && <div className="pw">{item.password}</div>}
+        {show &&
+          (item.customFields ?? [])
+            .filter((c) => c.label || c.value)
+            .map((c, i) => (
+              <div className="cf-row" key={i}>
+                <span className="cf-label">{c.label || 'Field'}</span>
+                <span className="cf-val">{c.value}</span>
+                {c.value && (
+                  <button className="iconbtn" title="Salin" onClick={() => onCopy(c.value, c.label || 'Field')}>
+                    <CopyIcon />
+                  </button>
+                )}
+              </div>
+            ))}
+        {show && item.notes && <div className="note-row">{item.notes}</div>}
       </div>
       <div className="acts">
         <button
@@ -864,6 +887,43 @@ function EyeOffIcon() { return <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7c
 function LinkIcon() { return <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></svg>; }
 function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>; }
 function TrashIcon() { return <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>; }
+
+// Small coloured dot showing the password's strength.
+function StrengthDot({ pw }: { pw: string }) {
+  const s = strength(pw);
+  return <span className="str-dot" title={`Kekuatan password: ${s.label}`} style={{ background: s.color, color: s.color }} />;
+}
+
+// Rotating 2FA code with a 30s countdown ring; click to copy.
+function TotpBadge({ secret, onCopy }: { secret: string; onCopy: (t: string, l: string) => void }) {
+  const [code, setCode] = useState('······');
+  const [left, setLeft] = useState(30);
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      const c = await totpCode(secret);
+      if (alive) {
+        setCode(c || '······');
+        setLeft(totpRemaining());
+      }
+    };
+    tick();
+    const iv = window.setInterval(tick, 1000);
+    return () => {
+      alive = false;
+      window.clearInterval(iv);
+    };
+  }, [secret]);
+  const valid = /^\d{6}$/.test(code);
+  const display = valid ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
+  return (
+    <button type="button" className="totp" title="Kode 2FA — klik buat salin" onClick={() => valid && onCopy(code, 'Kode 2FA')}>
+      <span className="totp-ring" style={{ ['--p']: `${(left / 30) * 100}%` } as React.CSSProperties} />
+      <span className="totp-code">{display}</span>
+      <span className="totp-left">{left}s</span>
+    </button>
+  );
+}
 
 const GEN_LABELS: Record<string, string> = { lower: 'kecil', upper: 'besar', digit: 'angka', symbol: 'simbol' };
 
@@ -969,6 +1029,43 @@ function ItemModal({
 
           <label className="fld">Catatan (opsional)</label>
           <textarea className="input" rows={3} value={f.notes} onChange={(e) => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
+
+          <label className="fld">Kode 2FA / TOTP (opsional)</label>
+          <input
+            className="input"
+            value={f.totp ?? ''}
+            onChange={(e) => set('totp', e.target.value)}
+            placeholder="Secret base32, mis. JBSWY3DPEHPK3PXP"
+            style={{ fontFamily: 'ui-monospace, monospace' }}
+          />
+
+          <label className="fld">Field tambahan (opsional)</label>
+          {(f.customFields ?? []).map((field, i) => (
+            <div className="row2" key={i} style={{ marginBottom: 8 }}>
+              <input
+                className="input" style={{ marginBottom: 0, flex: '0 0 34%' }} placeholder="Label"
+                value={field.label}
+                onChange={(e) => setF((p) => ({ ...p, customFields: (p.customFields ?? []).map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) }))}
+              />
+              <input
+                className="input" style={{ marginBottom: 0 }} placeholder="Nilai"
+                value={field.value}
+                onChange={(e) => setF((p) => ({ ...p, customFields: (p.customFields ?? []).map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) }))}
+              />
+              <button
+                type="button" className="btn ghost" title="Hapus field"
+                onClick={() => setF((p) => ({ ...p, customFields: (p.customFields ?? []).filter((_, j) => j !== i) }))}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button" className="btn sec" style={{ marginBottom: 12 }}
+            onClick={() => setF((p) => ({ ...p, customFields: [...(p.customFields ?? []), { label: '', value: '' }] }))}
+          >
+            + Field tambahan
+          </button>
 
           {meta?.updatedAt && (
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '14px 0 0', textAlign: 'right' }}>
