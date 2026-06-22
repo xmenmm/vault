@@ -383,37 +383,93 @@ type RowProps = {
 };
 
 /* ───────────────────────── Ringkasan ───────────────────────── */
+function greetingFor(h: number): string {
+  if (h < 11) return 'Selamat pagi';
+  if (h < 15) return 'Selamat siang';
+  if (h < 19) return 'Selamat sore';
+  return 'Selamat malam';
+}
+
 function OverviewView({
   items,
   onNav,
   onAdd,
   ...row
 }: { items: Item[]; onNav: (v: View) => void; onAdd: () => void } & RowProps) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+
   const fav = items.filter((i) => i.favorite).length;
   const cats = new Set(items.filter((i) => i.category.trim()).map((i) => i.category.trim())).size;
+  const withTotp = items.filter((i) => i.totp).length;
   const weak = items.filter((i) => i.password && i.password.length < 10).length;
+  const noPw = items.filter((i) => !i.password).length;
+  const pwCount = new Map<string, number>();
+  for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
+  const reused = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1).length;
   const score = items.length ? Math.round(((items.length - weak) / items.length) * 100) : 100;
-  const recent = items.slice(0, 5);
+  const recent = items.slice(0, 6);
+
+  const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const attention: { label: string; n: number; hint: string; tone: string }[] = [
+    { label: 'Password lemah', n: weak, hint: 'terlalu pendek', tone: weak ? 'warn' : 'ok' },
+    { label: 'Dipakai ulang', n: reused, hint: 'di >1 akun', tone: reused ? 'warn' : 'ok' },
+    { label: 'Tanpa 2FA', n: items.length - withTotp, hint: 'belum ada TOTP', tone: 'muted' },
+    { label: 'Tanpa password', n: noPw, hint: 'kosong', tone: noPw ? 'warn' : 'ok' },
+  ];
+
   return (
     <div className="wrap">
+      <div className="panel-card dash-header">
+        <div>
+          <div className="dash-status"><span className="dot" /> Semua terenkripsi · brankas aman</div>
+          <h2 className="dash-greet">{greetingFor(now.getHours())}, admin 👋</h2>
+          <p className="dash-sub">{dateStr}</p>
+        </div>
+        <div className="dash-clock">{timeStr}</div>
+      </div>
+
       <div className="stats">
         <Stat n={items.length} label="Total login" />
         <Stat n={cats} label="Kategori" />
         <Stat n={fav} label="Favorit" />
+        <Stat n={withTotp} label="Dengan 2FA" />
         <Stat n={`${score}%`} label="Skor keamanan" tone={score >= 80 ? 'ok' : 'warn'} />
       </div>
-      <div className="quick">
-        <button className="qbtn" onClick={onAdd}>➕<span>Tambah login</span></button>
-        <button className="qbtn" onClick={() => onNav('generator')}>🎲<span>Generator</span></button>
-        <button className="qbtn" onClick={() => onNav('security')}>🛡️<span>Cek keamanan</span></button>
-        <button className="qbtn" onClick={() => onNav('backup')}>📦<span>Backup</span></button>
+
+      <div className="dash-grid">
+        <div>
+          <p className="sec-hint">Pusat aksi · butuh perhatian</p>
+          <div className="action-grid">
+            {attention.map((a) => (
+              <button key={a.label} className="action-card" onClick={() => onNav('security')}>
+                <span className={`action-n ${a.tone}`}>{a.n}</span>
+                <span className="action-l">{a.label}</span>
+                <span className="action-h">{a.hint}</span>
+              </button>
+            ))}
+          </div>
+          <p className="sec-hint" style={{ marginTop: 22 }}>Aksi cepat</p>
+          <div className="quick">
+            <button className="qbtn" onClick={onAdd}>➕<span>Tambah login</span></button>
+            <button className="qbtn" onClick={() => onNav('generator')}>🎲<span>Generator</span></button>
+            <button className="qbtn" onClick={() => onNav('backup')}>📦<span>Backup</span></button>
+          </div>
+        </div>
+        <div>
+          <p className="sec-hint">Aktivitas terbaru</p>
+          {recent.length ? (
+            recent.map((it) => <ItemRow key={it.id} item={it} {...row} />)
+          ) : (
+            <div className="empty">Belum ada item. Klik ➕ Tambah login buat mulai.</div>
+          )}
+        </div>
       </div>
-      <p className="sec-hint">Terbaru</p>
-      {recent.length ? (
-        recent.map((it) => <ItemRow key={it.id} item={it} {...row} />)
-      ) : (
-        <div className="empty">Belum ada item. Klik ➕ Tambah login buat mulai.</div>
-      )}
     </div>
   );
 }
