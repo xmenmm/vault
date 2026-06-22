@@ -13,7 +13,6 @@ import { exportEncKey, importEncKey, type Keys } from '@/lib/crypto';
 // The encryption key is cached (locally) so a refresh / reopen doesn't force a
 // re-login. It still auto-locks after idle and expires after a few days.
 const STORE = 'vault-k';
-const AUTO_LOCK_MS = 30 * 60 * 1000; // 30 min idle
 const PERSIST_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 type Ctx = {
@@ -32,7 +31,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const persist = useCallback(async (k: Keys | null) => {
     try {
-      if (!k) {
+      // Respect the "Ingat sesi" setting — if off, never cache the key.
+      if (!k || localStorage.getItem('vault-persist') === '0') {
         localStorage.removeItem(STORE);
         return;
       }
@@ -89,7 +89,11 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!keys) return;
     const reset = () => {
       if (timer.current) window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(lock, AUTO_LOCK_MS);
+      // Read the configurable idle timeout each time (Settings → Kunci otomatis).
+      // 0 / invalid means "never". Default 30 minutes.
+      const mins = Number(localStorage.getItem('vault-autolock') ?? '30');
+      if (!mins || mins <= 0) return;
+      timer.current = window.setTimeout(lock, mins * 60 * 1000);
     };
     const evs = ['mousemove', 'keydown', 'click', 'touchstart'];
     evs.forEach((e) => window.addEventListener(e, reset, { passive: true }));

@@ -718,3 +718,26 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 @media (prefers-reduced-motion: reduce) {
   .orbit-spin, .orbit-ico, .orbit-core, .orbit-core::before, .orbit-core::after { animation: none; }
 }
+
+/* ── Settings: segmented theme control ── */
+.kv { align-items: center; }
+.seg { display: inline-flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; flex: none; }
+.seg-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.on {
+  background: linear-gradient(135deg, #5b8cff, #7c5cff);
+  color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(91, 140, 255, 0.6);
+}
+.panel-card select:focus { outline: none; border-color: var(--accent); }

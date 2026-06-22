@@ -48,6 +48,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [themePref, setThemePref] = useState<'system' | 'dark' | 'light'>('system');
 
   const flash = useCallback((m: string) => {
     setToast(m);
@@ -58,16 +59,20 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     // Respect a saved choice; otherwise follow the OS dark/light preference.
     const saved = localStorage.getItem('vault-theme') as 'dark' | 'light' | null;
     const system = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    const initial = saved || system;
-    setTheme(initial);
-    document.documentElement.dataset.theme = initial;
+    setThemePref(saved ?? 'system');
+    const resolved = saved ?? system;
+    setTheme(resolved);
+    document.documentElement.dataset.theme = resolved;
   }, []);
 
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem('vault-theme', next);
+  function applyTheme(mode: 'system' | 'dark' | 'light') {
+    const system = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    const resolved = mode === 'system' ? system : mode;
+    setThemePref(mode);
+    setTheme(resolved);
+    document.documentElement.dataset.theme = resolved;
+    if (mode === 'system') localStorage.removeItem('vault-theme');
+    else localStorage.setItem('vault-theme', mode);
   }
 
   const load = useCallback(async () => {
@@ -181,18 +186,21 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     try {
       await navigator.clipboard.writeText(text);
       flash(`${label} disalin`);
-      // Auto-clear after 30s — but only if the clipboard STILL holds what we
-      // copied, so we don't wipe something the user copied in the meantime.
-      // If the clipboard isn't readable (permission/focus), leave it untouched.
-      window.setTimeout(async () => {
-        try {
-          if ((await navigator.clipboard.readText()) === text) {
-            await navigator.clipboard.writeText('');
+      // Auto-clear after N seconds (configurable in Settings; 0 = off) — but
+      // only if the clipboard STILL holds what we copied, so we don't wipe
+      // something the user copied in the meantime.
+      const secs = Number(localStorage.getItem('vault-clipclear') ?? '30');
+      if (secs > 0) {
+        window.setTimeout(async () => {
+          try {
+            if ((await navigator.clipboard.readText()) === text) {
+              await navigator.clipboard.writeText('');
+            }
+          } catch {
+            /* clipboard not readable — don't clobber it */
           }
-        } catch {
-          /* clipboard not readable — don't clobber it */
-        }
-      }, 30000);
+        }, secs * 1000);
+      }
     } catch {
       flash('Gagal menyalin');
     }
@@ -347,7 +355,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         {view === 'generator' && <GeneratorView onCopy={copy} />}
         {view === 'backup' && <BackupView flash={flash} reload={load} encKey={keys.encKey} />}
         {view === 'settings' && (
-          <SettingsView items={items} onLock={onLock} onDeleteAll={deleteAll} theme={theme} onToggleTheme={toggleTheme} />
+          <SettingsView items={items} onLock={onLock} onDeleteAll={deleteAll} themePref={themePref} onSetTheme={applyTheme} flash={flash} />
         )}
         {view === 'faq' && <FaqView />}
       </div>
@@ -676,42 +684,114 @@ function BackupView({
 }
 
 /* ───────────────────────── Pengaturan ───────────────────────── */
+const THEME_OPTS: ['system' | 'dark' | 'light', string][] = [
+  ['system', '🖥️ Sistem'],
+  ['dark', '🌙 Gelap'],
+  ['light', '☀️ Terang'],
+];
+
 function SettingsView({
   items,
   onLock,
   onDeleteAll,
-  theme,
-  onToggleTheme,
+  themePref,
+  onSetTheme,
+  flash,
 }: {
   items: Item[];
   onLock: () => void;
   onDeleteAll: () => void;
-  theme: 'dark' | 'light';
-  onToggleTheme: () => void;
+  themePref: 'system' | 'dark' | 'light';
+  onSetTheme: (m: 'system' | 'dark' | 'light') => void;
+  flash: (m: string) => void;
 }) {
+  const [autolock, setAutolock] = useState('30');
+  const [persist, setPersist] = useState(true);
+  const [clipclear, setClipclear] = useState('30');
+
+  useEffect(() => {
+    setAutolock(localStorage.getItem('vault-autolock') ?? '30');
+    setPersist(localStorage.getItem('vault-persist') !== '0');
+    setClipclear(localStorage.getItem('vault-clipclear') ?? '30');
+  }, []);
+
+  const saveAutolock = (v: string) => { setAutolock(v); localStorage.setItem('vault-autolock', v); flash('Tersimpan'); };
+  const saveClip = (v: string) => { setClipclear(v); localStorage.setItem('vault-clipclear', v); flash('Tersimpan'); };
+  const togglePersist = () => {
+    const next = !persist;
+    setPersist(next);
+    localStorage.setItem('vault-persist', next ? '1' : '0');
+    if (!next) localStorage.removeItem('vault-k'); // stop caching the key now
+    flash('Tersimpan');
+  };
+
+  const sel = {
+    padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)',
+    background: 'var(--panel-2)', color: 'var(--text)', fontSize: 14, cursor: 'pointer',
+  } as const;
+
   return (
     <div className="wrap">
-      <div className="panel-card" style={{ maxWidth: 600 }}>
+      <div className="panel-card" style={{ maxWidth: 620 }}>
         <h3 className="pc-title">Tampilan</h3>
         <div className="kv">
-          <span>Tema {theme === 'dark' ? 'gelap' : 'terang'}</span>
-          <button className={`switch ${theme === 'light' ? 'on' : ''}`} onClick={onToggleTheme} aria-label="Ganti tema">
+          <span>Tema</span>
+          <div className="seg">
+            {THEME_OPTS.map(([m, label]) => (
+              <button key={m} className={`seg-btn ${themePref === m ? 'on' : ''}`} onClick={() => onSetTheme(m)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="panel-card" style={{ maxWidth: 620, marginTop: 14 }}>
+        <h3 className="pc-title">Keamanan &amp; privasi</h3>
+        <div className="kv">
+          <span>Kunci otomatis saat idle</span>
+          <select value={autolock} onChange={(e) => saveAutolock(e.target.value)} style={sel}>
+            <option value="5">5 menit</option>
+            <option value="15">15 menit</option>
+            <option value="30">30 menit</option>
+            <option value="60">1 jam</option>
+            <option value="0">Jangan pernah</option>
+          </select>
+        </div>
+        <div className="kv">
+          <span>Auto-bersih clipboard</span>
+          <select value={clipclear} onChange={(e) => saveClip(e.target.value)} style={sel}>
+            <option value="15">15 detik</option>
+            <option value="30">30 detik</option>
+            <option value="60">60 detik</option>
+            <option value="0">Mati</option>
+          </select>
+        </div>
+        <div className="kv">
+          <span>
+            Ingat sesi 7 hari
+            <br />
+            <small style={{ color: 'var(--muted)' }}>Mati = minta master password tiap buka ulang (lebih aman)</small>
+          </span>
+          <button className={`switch ${persist ? 'on' : ''}`} onClick={togglePersist} aria-label="Ingat sesi">
             <span className="knob" />
           </button>
         </div>
       </div>
-      <div className="panel-card" style={{ maxWidth: 600, marginTop: 14 }}>
+
+      <div className="panel-card" style={{ maxWidth: 620, marginTop: 14 }}>
         <h3 className="pc-title">Info brankas</h3>
         <div className="kv"><span>Total item</span><b>{items.length}</b></div>
         <div className="kv"><span>Favorit</span><b>{items.filter((i) => i.favorite).length}</b></div>
+        <div className="kv"><span>Dengan 2FA</span><b>{items.filter((i) => i.totp).length}</b></div>
         <div className="kv"><span>Mode</span><b>Single-user (pribadi)</b></div>
         <div className="kv"><span>Enkripsi</span><b>AES-256-GCM · zero-knowledge</b></div>
-        <div className="kv"><span>Kunci otomatis</span><b>30 menit idle</b></div>
         <button className="btn sec" style={{ marginTop: 16 }} onClick={onLock}>
           🔒 Kunci sekarang
         </button>
       </div>
-      <div className="panel-card danger" style={{ maxWidth: 600, marginTop: 14 }}>
+
+      <div className="panel-card danger" style={{ maxWidth: 620, marginTop: 14 }}>
         <h3 className="pc-title" style={{ color: 'var(--danger)' }}>Zona bahaya</h3>
         <p className="pc-desc">Hapus semua entri di brankas. Tindakan ini permanen dan nggak bisa dibatalkan.</p>
         <button className="btn danger" onClick={onDeleteAll}>
