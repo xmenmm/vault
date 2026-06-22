@@ -410,60 +410,209 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
   .only-mobile { display: inline-flex; }
 }
 
-/* ── Premium dashboard refinements (theme-safe) ── */
-/* Primary buttons match the landing's gradient CTA */
-.btn:not(.sec):not(.ghost):not(.danger) {
-  background: linear-gradient(135deg, #5b8cff, #7c5cff);
-  box-shadow: 0 8px 22px -10px rgba(91, 140, 255, 0.65);
-  transition: box-shadow 0.2s ease, transform 0.08s ease;
-}
-.btn:not(.sec):not(.ghost):not(.danger):hover {
-  box-shadow: 0 12px 30px -8px rgba(124, 92, 255, 0.8);
+/* ════════════════════════════════════════════════════════════
+   PREMIUM DASHBOARD — glass, ambient depth, gradient accents
+   (dark-first; light theme kept functional via overrides)
+   ════════════════════════════════════════════════════════════ */
+
+/* Ambient depth behind everything */
+.shell {
+  background:
+    radial-gradient(1000px 560px at 8% -12%, rgba(91, 140, 255, 0.12), transparent 60%),
+    radial-gradient(820px 480px at 104% -6%, rgba(124, 92, 255, 0.10), transparent 55%),
+    var(--bg);
 }
 
-/* Sidebar active item: gradient tint + accent bar */
-.snav { position: relative; transition: background 0.15s ease, color 0.15s ease; }
+/* ── Sidebar (glass) ── */
+.side {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid var(--border);
+  padding: 18px 14px;
+}
+.side-brand { font-size: 19px; letter-spacing: -0.01em; margin: 4px 4px 20px; }
+.side-label { margin: 8px 6px 8px; opacity: 0.75; }
+.side-nav { gap: 4px; }
+.snav {
+  position: relative;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  font-weight: 500;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.snav:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
 .snav.active {
-  background: linear-gradient(90deg, rgba(91, 140, 255, 0.2), rgba(124, 92, 255, 0.05));
+  background: linear-gradient(90deg, rgba(91, 140, 255, 0.22), rgba(124, 92, 255, 0.05));
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(123, 162, 255, 0.22);
 }
 .snav.active::before {
   content: '';
   position: absolute;
   left: 0;
   top: 50%;
-  height: 18px;
+  height: 20px;
   width: 3px;
   transform: translateY(-50%);
   border-radius: 0 3px 3px 0;
   background: linear-gradient(180deg, #5b8cff, #7c5cff);
+  box-shadow: 0 0 12px rgba(91, 140, 255, 0.6);
+}
+.snav .cnt { background: rgba(255, 255, 255, 0.08); border-radius: 20px; }
+.snav.active .cnt { background: rgba(91, 140, 255, 0.28); color: #cfdcff; }
+.side-foot { padding-top: 14px; border-top: 1px solid var(--border); }
+
+/* ── Primary gradient buttons (match landing CTA) ── */
+.btn:not(.sec):not(.ghost):not(.danger) {
+  background: linear-gradient(135deg, #5b8cff, #7c5cff);
+  box-shadow: 0 10px 26px -10px rgba(91, 140, 255, 0.7);
+  border-radius: 12px;
+  font-weight: 600;
+  transition: box-shadow 0.2s ease, transform 0.08s ease, filter 0.2s ease;
+}
+.btn:not(.sec):not(.ghost):not(.danger):hover {
+  box-shadow: 0 14px 34px -8px rgba(124, 92, 255, 0.85);
+  filter: brightness(1.06);
 }
 
-/* Item rows: subtle lift + accent border + shadow on hover */
+/* ── Top bar (glass) ── */
+.top {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 15px 28px;
+}
+.top .search input,
+.search-big { border-radius: 12px; }
+
+.wrap { padding: 28px 30px; }
+.sec-hint {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 14px 2px;
+}
+
+/* ── Stat cards (glass + gradient number) ── */
+.stats { gap: 16px; margin-bottom: 26px; }
+.stat {
+  position: relative;
+  overflow: hidden;
+  padding: 20px 22px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--border);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.stat::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(123, 162, 255, 0.5), transparent);
+}
+.stat:hover {
+  transform: translateY(-3px);
+  border-color: rgba(123, 162, 255, 0.3);
+  box-shadow: 0 18px 44px -26px rgba(0, 0, 0, 0.9);
+}
+.stat-n {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #ffffff, #9fb3d8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.stat.ok .stat-n { background-image: linear-gradient(135deg, #5fe0aa, #2bb079); }
+.stat.warn .stat-n { background-image: linear-gradient(135deg, #f3c06a, #e0a13c); }
+.stat-l { font-size: 13px; color: var(--muted); margin-top: 8px; }
+[data-theme='light'] .stat-n { background-image: linear-gradient(135deg, #1b2230, #5a6a8c); }
+
+/* ── Quick action tiles (glass) ── */
+.quick { gap: 14px; margin-bottom: 26px; }
+.qbtn {
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  font-size: 24px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--border);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.qbtn span { font-size: 14px; font-weight: 600; }
+.qbtn:hover {
+  transform: translateY(-3px);
+  border-color: rgba(123, 162, 255, 0.35);
+  box-shadow: 0 18px 44px -26px rgba(0, 0, 0, 0.9);
+}
+
+/* ── Item rows (glass cards) ── */
 .item {
-  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 11px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--border);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .item:hover {
-  border-color: rgba(91, 140, 255, 0.4);
-  box-shadow: 0 12px 28px -18px rgba(0, 0, 0, 0.85);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  border-color: rgba(123, 162, 255, 0.4);
+  box-shadow: 0 18px 44px -24px rgba(0, 0, 0, 0.92), inset 0 0 0 1px rgba(123, 162, 255, 0.08);
 }
+.item .ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: linear-gradient(140deg, rgba(91, 140, 255, 0.34), rgba(124, 92, 255, 0.18));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.item .ttl { font-size: 15px; font-weight: 650; }
+.item .cat {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(91, 140, 255, 0.14);
+  color: #9db4ff;
+  border: 1px solid rgba(91, 140, 255, 0.22);
+}
+.iconbtn { width: 36px; height: 36px; border-radius: 10px; }
+.iconbtn:hover { background: rgba(255, 255, 255, 0.07); color: var(--text); border-color: var(--border); }
 
-/* Quick actions: lift on hover */
-.qbtn { transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease; }
-.qbtn:hover { transform: translateY(-2px); }
-
-/* Cards get a touch of depth (highlight invisible in light theme — harmless) */
-.stat,
+/* ── Panel cards / FAQ (glass) ── */
 .panel-card,
 .faq-item {
-  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -24px rgba(0, 0, 0, 0.7);
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 40px -28px rgba(0, 0, 0, 0.85);
 }
-.stat-n { letter-spacing: -0.02em; }
+.panel-card { padding: 22px; }
 
-/* Modal: blurred backdrop + deeper shadow */
-.scrim {
-  background: rgba(3, 5, 10, 0.6);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+/* ── Chips ── */
+.chip { border-radius: 20px; transition: all 0.15s ease; }
+.chip.active {
+  background: linear-gradient(135deg, rgba(91, 140, 255, 0.22), rgba(124, 92, 255, 0.12));
+  border-color: rgba(123, 162, 255, 0.45);
+  color: #fff;
 }
-.modal { box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8); }
+
+/* ── Modal (glass) ── */
+.scrim {
+  background: rgba(3, 5, 10, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.modal {
+  border-radius: 20px;
+  box-shadow: 0 40px 110px -24px rgba(0, 0, 0, 0.88);
+}
