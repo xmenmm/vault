@@ -54,6 +54,19 @@ body {
 a { color: inherit; }
 button { font-family: inherit; }
 
+/* Slim, theme-matched scrollbars (replaces the chunky default) */
+* { scrollbar-width: thin; scrollbar-color: rgba(120, 130, 150, 0.4) transparent; }
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(120, 130, 150, 0.38);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(120, 130, 150, 0.62); background-clip: content-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
+
 /* ── Landing logo cloud (infinite marquee) ── */
 .logo-cloud-mask {
   -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
