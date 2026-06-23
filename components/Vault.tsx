@@ -49,6 +49,9 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [toast, setToast] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [themePref, setThemePref] = useState<'system' | 'dark' | 'light'>('system');
+  // "Buka & login" terpandu — sequences copy-username → open-site → copy-password
+  // across a tab switch (the only safe way to "auto-login" from a web app on HP).
+  const [loginFlow, setLoginFlow] = useState<{ item: Item; step: 'opened' | 'ready' | 'done' } | null>(null);
 
   const flash = useCallback((m: string) => {
     setToast(m);
@@ -206,6 +209,44 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     }
   }
 
+  // Step 1: copy the username, open the site in a new tab, and remember we're
+  // mid-login so the password step can surface when the user comes back.
+  function startLogin(it: Item) {
+    if (!it.url) {
+      flash('Item ini nggak punya website');
+      return;
+    }
+    const href = /^https?:\/\//.test(it.url) ? it.url : `https://${it.url}`;
+    if (it.username) copy(it.username, 'Username');
+    window.open(href, '_blank', 'noopener,noreferrer');
+    setLoginFlow({ item: it, step: 'opened' });
+  }
+
+  // Step 2: copy the password, then auto-dismiss the bar shortly after.
+  function copyLoginPw() {
+    if (!loginFlow) return;
+    copy(loginFlow.item.password, 'Password');
+    setLoginFlow((f) => (f ? { ...f, step: 'done' } : f));
+    window.setTimeout(() => setLoginFlow((f) => (f && f.step === 'done' ? null : f)), 4500);
+  }
+
+  // When the user returns to this tab mid-flow, advance to the "salin password"
+  // step automatically so they don't have to find the item again.
+  useEffect(() => {
+    if (!loginFlow) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        setLoginFlow((f) => (f && f.step === 'opened' ? { ...f, step: 'ready' } : f));
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [loginFlow]);
+
   const categories = useMemo(() => {
     const m = new Map<string, number>();
     for (const i of items) {
@@ -228,7 +269,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     });
   }, [items, query, cat, view]);
 
-  const rowProps = { onCopy: copy, onEditItem: setEditing, onDelete: remove, onToggleFav: toggleFav };
+  const rowProps = { onCopy: copy, onEditItem: setEditing, onDelete: remove, onToggleFav: toggleFav, onLogin: startLogin };
 
   const NAV: { v: View; label: string; count?: number }[] = [
     { v: 'overview', label: '🏠 Ringkasan' },
@@ -370,6 +411,16 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         />
       )}
 
+      {loginFlow && (
+        <LoginFlowBar
+          item={loginFlow.item}
+          step={loginFlow.step}
+          onCopyPw={copyLoginPw}
+          onReopen={() => startLogin(loginFlow.item)}
+          onClose={() => setLoginFlow(null)}
+        />
+      )}
+
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
@@ -380,6 +431,7 @@ type RowProps = {
   onEditItem: (it: Item) => void;
   onDelete: (id: string) => void;
   onToggleFav: (it: Item) => void;
+  onLogin?: (it: Item) => void;
 };
 
 /* ───────────────────────── Ringkasan ───────────────────────── */
@@ -934,6 +986,7 @@ function ItemRow({
   onEditItem,
   onDelete,
   onToggleFav,
+  onLogin,
 }: { item: Item; highlight?: string } & RowProps) {
   const [show, setShow] = useState(false);
   const [imgErr, setImgErr] = useState(false);
@@ -984,6 +1037,11 @@ function ItemRow({
         {show && item.notes && <div className="note-row">{item.notes}</div>}
       </div>
       <div className="acts">
+        {onLogin && item.url && item.password && (
+          <button className="iconbtn go" title="Buka & login terpandu" onClick={() => onLogin(item)}>
+            <LoginIcon />
+          </button>
+        )}
         <button
           className={`iconbtn ${item.favorite ? 'fav' : ''}`}
           title={item.favorite ? 'Hapus dari favorit' : 'Jadikan favorit'}
@@ -1036,6 +1094,62 @@ function EyeOffIcon() { return <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7c
 function LinkIcon() { return <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></svg>; }
 function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>; }
 function TrashIcon() { return <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>; }
+function LoginIcon() { return <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5" /><path d="M15 12H3" /></svg>; }
+
+/* ─────────────────── "Buka & login" terpandu ─────────────────── */
+// A floating bar that walks the user through a 2-step login on mobile: it can't
+// autofill another site (same-origin policy), but it CAN sequence the copies and
+// open the tab, so the user never has to leave the flow to hunt for a field.
+function LoginFlowBar({
+  item,
+  step,
+  onCopyPw,
+  onReopen,
+  onClose,
+}: {
+  item: Item;
+  step: 'opened' | 'ready' | 'done';
+  onCopyPw: () => void;
+  onReopen: () => void;
+  onClose: () => void;
+}) {
+  const [imgErr, setImgErr] = useState(false);
+  const initial = (item.title || item.username || '?').charAt(0).toUpperCase();
+  const domain = item.url ? item.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : '';
+  const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64` : '';
+  const msg =
+    step === 'done'
+      ? '✓ Password disalin — tinggal tempel & login.'
+      : step === 'ready'
+      ? 'Langkah 2 — ketuk salin password, lalu tempel di situs.'
+      : 'Langkah 1 — username disalin & situs kebuka. Balik ke sini buat lanjut.';
+
+  return (
+    <div className={`loginbar ${step}`}>
+      <div className="lb-ic">
+        {favicon && !imgErr ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={favicon} alt="" width={22} height={22} onError={() => setImgErr(true)} />
+        ) : (
+          initial
+        )}
+      </div>
+      <div className="lb-info">
+        <div className="lb-title">{item.title || '(tanpa judul)'}</div>
+        <div className="lb-step">{msg}</div>
+      </div>
+      <div className="lb-acts">
+        {step !== 'done' && (
+          <>
+            <button className="btn sm" onClick={onCopyPw}>🔑 Salin password</button>
+            <button className="btn ghost sm" title="Buka situs lagi" onClick={onReopen}>↗</button>
+          </>
+        )}
+        <button className="iconbtn" title="Selesai" onClick={onClose}>✕</button>
+      </div>
+    </div>
+  );
+}
 
 // Small coloured dot showing the password's strength.
 function StrengthDot({ pw }: { pw: string }) {
