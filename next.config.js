@@ -12,9 +12,11 @@ const csp = [
   // img only: Google favicons (item icons) + simple-icons (brand logos).
   "img-src 'self' data: https://www.google.com https://*.gstatic.com https://cdn.simpleicons.org",
   "font-src 'self'",
-  // No external runtime fetches — the browser only talks to this app's own
-  // API, so connect-src 'self' blocks any attempt to exfiltrate the key.
-  `connect-src 'self'${isDev ? ' ws: wss:' : ''}`,
+  // The browser only talks to this app's own API + the HaveIBeenPwned range
+  // API for breach checks. HIBP uses k-anonymity (only a 5-char hash prefix is
+  // sent), so allowing it can't leak a password or the key. Everything else
+  // stays blocked, so XSS still can't exfiltrate the key to an arbitrary host.
+  `connect-src 'self' https://api.pwnedpasswords.com${isDev ? ' ws: wss:' : ''}`,
   "worker-src 'self' blob:",
   "frame-src 'none'",
   "object-src 'none'",

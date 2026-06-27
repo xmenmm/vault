@@ -905,3 +905,22 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
   .sec-gauge-card { flex-direction: column; text-align: center; }
   .sec-mini { justify-content: center; }
 }
+
+/* ── Cek kebocoran ── */
+.breach-card { margin-bottom: 16px; }
+.breach-head { display: flex; align-items: flex-start; gap: 16px; }
+.breach-head > div { flex: 1; min-width: 0; }
+.breach-head .pc-desc { margin-bottom: 0; }
+.breach-head .btn { flex: none; white-space: nowrap; }
+.breach-ok {
+  margin-top: 14px; padding: 12px 14px; border-radius: 12px; font-size: 13.5px; font-weight: 600;
+  color: var(--ok); background: rgba(43, 176, 121, 0.1); border: 1px solid rgba(43, 176, 121, 0.3);
+}
+.breach-warn {
+  margin: 14px 0 6px; padding: 12px 14px; border-radius: 12px; font-size: 13.5px; font-weight: 600;
+  color: var(--danger); background: rgba(224, 80, 60, 0.1); border: 1px solid rgba(224, 80, 60, 0.32);
+}
+@media (max-width: 560px) {
+  .breach-head { flex-direction: column; }
+  .breach-head .btn { width: 100%; }
+}

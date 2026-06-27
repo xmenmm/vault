@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
 import { generatePassword, generatePassphrase, passphraseEntropy, type GenOpts, type PassphraseOpts } from '@/lib/pwgen';
 import { strength, strengthFromBits, entropyBits, crackTimeLabel } from '@/lib/strength';
+import { pwnedCount } from '@/lib/breach';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 
@@ -604,6 +605,38 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
   const totpPct = total ? Math.round((m.withTotp / total) * 100) : 0;
   const distMax = Math.max(1, ...m.dist);
 
+  const [scan, setScan] = useState<{
+    state: 'idle' | 'running' | 'done';
+    done: number;
+    total: number;
+    breached: { item: Item; count: number }[];
+  }>({ state: 'idle', done: 0, total: 0, breached: [] });
+
+  async function runScan() {
+    // Dedupe by password so identical logins are only one network lookup.
+    const uniq = new Map<string, Item[]>();
+    for (const it of items) if (it.password) {
+      const a = uniq.get(it.password) || [];
+      a.push(it);
+      uniq.set(it.password, a);
+    }
+    const entries = [...uniq.entries()];
+    setScan({ state: 'running', done: 0, total: entries.length, breached: [] });
+    const breached: { item: Item; count: number }[] = [];
+    let done = 0;
+    for (const [pw, its] of entries) {
+      try {
+        const c = await pwnedCount(pw);
+        if (c > 0) for (const it of its) breached.push({ item: it, count: c });
+      } catch {
+        /* skip a failed lookup, keep going */
+      }
+      done++;
+      setScan((s) => ({ ...s, done }));
+    }
+    setScan({ state: 'done', done, total: entries.length, breached });
+  }
+
   return (
     <div className="wrap">
       <div className="sec-top">
@@ -637,6 +670,38 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="panel-card breach-card">
+        <div className="breach-head">
+          <div>
+            <h3 className="pc-title">🔎 Cek kebocoran</h3>
+            <p className="pc-desc">Bandingkan password kamu dengan miliaran yang pernah bocor (HaveIBeenPwned). Aman — cuma 5 huruf hash yang dikirim, password aslinya nggak pernah keluar dari perangkat.</p>
+          </div>
+          <button className="btn" disabled={scan.state === 'running'} onClick={runScan}>
+            {scan.state === 'running' ? `Memeriksa… ${scan.done}/${scan.total}` : scan.state === 'done' ? 'Periksa ulang' : 'Periksa sekarang'}
+          </button>
+        </div>
+        {scan.state === 'done' &&
+          (scan.breached.length === 0 ? (
+            <div className="breach-ok">✓ Aman — nggak ada password kamu yang ketemu di daftar kebocoran.</div>
+          ) : (
+            <>
+              <div className="breach-warn">⚠️ {scan.breached.length} password ketemu di kebocoran — sebaiknya segera ganti.</div>
+              {scan.breached.map(({ item, count }) => (
+                <div className="item" key={item.id}>
+                  <div className="ic">{(item.title || item.username || '?').charAt(0).toUpperCase()}</div>
+                  <div className="info">
+                    <div className="title-row"><span className="ttl">{item.title || '(tanpa judul)'}</span></div>
+                    <div className="usr" style={{ color: 'var(--danger)' }}>Ketemu {count.toLocaleString('id-ID')}× di kebocoran</div>
+                  </div>
+                  <div className="acts">
+                    <button className="iconbtn" title="Perbaiki" onClick={() => onEdit(item)}><EditIcon /></button>
+                  </div>
+                </div>
+              ))}
+            </>
+          ))}
       </div>
 
       <div className="stats">
