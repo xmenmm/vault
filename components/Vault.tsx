@@ -76,6 +76,8 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'recent' | 'title' | 'weak'>('recent');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<View>('overview');
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -314,6 +316,51 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
   const rowProps = { onCopy: copy, onEditItem: setEditing, onDelete: remove, onToggleFav: toggleFav, onLogin: startLogin };
 
+  // ── Bulk selection ──
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+  const exitSelect = useCallback(() => {
+    setSelectMode(false);
+    setSelected(new Set());
+  }, []);
+  const selectAllShown = () => setSelected(new Set(shown.map((i) => i.id)));
+
+  async function bulkDelete() {
+    if (!selected.size) return;
+    if (!window.confirm(`Hapus ${selected.size} item terpilih? Nggak bisa dibatalkan.`)) return;
+    for (const id of selected) {
+      await fetch('/api/vault', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+    }
+    flash(`${selected.size} item dihapus`);
+    exitSelect();
+    load();
+  }
+  async function bulkFav() {
+    const toFav = items.filter((i) => selected.has(i.id) && !i.favorite);
+    if (!toFav.length) {
+      flash('Semua terpilih sudah favorit');
+      return;
+    }
+    for (const it of toFav) await toggleFav(it);
+    flash(`${toFav.length} ditandai favorit`);
+    exitSelect();
+  }
+
+  const goView = (v: View) => {
+    exitSelect();
+    setView(v);
+  };
+
   const NAV: { v: View; label: string; count?: number }[] = [
     { v: 'overview', label: '🏠 Ringkasan' },
     { v: 'vault', label: '🔑 Brankas', count: items.length },
@@ -357,7 +404,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         <p className="side-label">Menu</p>
         <nav className="side-nav">
           {NAV.map((n) => (
-            <button key={n.v} className={`snav ${view === n.v ? 'active' : ''}`} onClick={() => setView(n.v)}>
+            <button key={n.v} className={`snav ${view === n.v ? 'active' : ''}`} onClick={() => goView(n.v)}>
               <span>{n.label}</span>
               {n.count !== undefined && <span className="cnt">{n.count}</span>}
             </button>
@@ -390,6 +437,13 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
                 <option value="title">Judul A–Z</option>
                 <option value="weak">Terlemah dulu</option>
               </select>
+              <button
+                className={`btn sm ${selectMode ? '' : 'ghost'}`}
+                onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+                title="Pilih beberapa item"
+              >
+                {selectMode ? 'Selesai' : '☑ Pilih'}
+              </button>
               <button className="btn sm" onClick={() => setEditing('new')}>
                 + Tambah
               </button>
@@ -440,7 +494,16 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
                   : 'Nggak ada hasil.'}
               </div>
             ) : (
-              shown.map((it) => <ItemRow key={it.id} item={it} {...rowProps} />)
+              shown.map((it) => (
+                <ItemRow
+                  key={it.id}
+                  item={it}
+                  {...rowProps}
+                  selectMode={selectMode}
+                  selected={selected.has(it.id)}
+                  onToggleSelect={toggleSelect}
+                />
+              ))
             )}
           </div>
         )}
@@ -472,6 +535,18 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
           onReopen={() => startLogin(loginFlow.item)}
           onClose={() => setLoginFlow(null)}
         />
+      )}
+
+      {selectMode && isList && (
+        <div className="selbar">
+          <span className="selbar-count">{selected.size} dipilih</span>
+          <div className="selbar-acts">
+            <button className="btn sm ghost" onClick={selectAllShown}>Pilih semua ({shown.length})</button>
+            <button className="btn sm sec" disabled={!selected.size} onClick={bulkFav}>⭐ Favorit</button>
+            <button className="btn sm danger" disabled={!selected.size} onClick={bulkDelete}>🗑 Hapus</button>
+            <button className="iconbtn" title="Selesai" onClick={exitSelect}>✕</button>
+          </div>
+        </div>
       )}
 
       {toast && <div className="toast">{toast}</div>}
@@ -1442,7 +1517,16 @@ function ItemRow({
   onDelete,
   onToggleFav,
   onLogin,
-}: { item: Item; highlight?: string } & RowProps) {
+  selectMode,
+  selected,
+  onToggleSelect,
+}: {
+  item: Item;
+  highlight?: string;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
+} & RowProps) {
   const [show, setShow] = useState(false);
   const [imgErr, setImgErr] = useState(false);
   const t = typeOf(item);
@@ -1474,7 +1558,11 @@ function ItemRow({
     ) : null;
 
   return (
-    <div className="item">
+    <div
+      className={`item ${selectMode ? 'selectable' : ''} ${selected ? 'selected' : ''}`}
+      onClick={selectMode ? () => onToggleSelect?.(item.id) : undefined}
+    >
+      {selectMode && <div className={`sel-check ${selected ? 'on' : ''}`} aria-hidden />}
       <div className={`ic ic-${t}`}>
         {t === 'login' && favicon && !imgErr ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1487,7 +1575,7 @@ function ItemRow({
       </div>
       <div className="info">
         <div className="title-row">
-          {t === 'login' && item.url ? (
+          {t === 'login' && item.url && !selectMode ? (
             <a className="ttl ttl-link" href={href} target="_blank" rel="noreferrer" title="Buka situs">
               {hl(title, highlight)} ↗
             </a>
@@ -1546,6 +1634,7 @@ function ItemRow({
             ))}
         {show && notes && <div className="note-row">{notes}</div>}
       </div>
+      {!selectMode && (
       <div className="acts">
         {t === 'login' && onLogin && item.url && item.password && (
           <button className="iconbtn go" title="Buka & login terpandu" onClick={() => onLogin(item)}>
@@ -1601,6 +1690,7 @@ function ItemRow({
           <TrashIcon />
         </button>
       </div>
+      )}
     </div>
   );
 }
