@@ -20,6 +20,7 @@ export default function Landing() {
             <a href="#features" className="link-underline hover:text-white transition">Fitur</a>
             <a href="#how" className="link-underline hover:text-white transition">Cara kerja</a>
             <a href="#security" className="link-underline hover:text-white transition">Keamanan</a>
+            <a href="#faq" className="link-underline hover:text-white transition">FAQ</a>
           </nav>
           <Link
             href="/login"
@@ -99,6 +100,22 @@ export default function Landing() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ── Spec band ── */}
+      <section className="relative w-full px-6 sm:px-10 py-6">
+        <Reveal className="mx-auto max-w-7xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-[24px] border border-white/[0.07] bg-white/[0.02] p-8 md:p-10">
+            {SPECS.map((s) => (
+              <div key={s.label} className="text-center">
+                <div className="text-3xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#8fb0ff] to-[#7c5cff]">
+                  {s.value}
+                </div>
+                <div className="mt-1.5 text-xs md:text-sm text-neutral-400">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
       </section>
 
       {/* ── How it works ── */}
@@ -198,6 +215,29 @@ export default function Landing() {
         </Reveal>
       </section>
 
+      {/* ── FAQ ── */}
+      <section id="faq" className="relative w-full px-6 sm:px-10 py-20 md:py-24">
+        <div className="mx-auto max-w-3xl">
+          <Reveal className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7aa2ff]">FAQ</p>
+            <h2 className="mt-3 text-3xl md:text-5xl font-bold tracking-[-0.02em]">Pertanyaan umum.</h2>
+          </Reveal>
+          <div className="mt-12 space-y-3">
+            {FAQS.map((f, i) => (
+              <Reveal key={i} delay={(i % 3) * 0.06}>
+                <details className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] px-6 py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between font-semibold text-[15px]">
+                    {f.q}
+                    <span className="ml-4 flex-none text-xl leading-none text-neutral-500 transition-transform duration-200 group-open:rotate-45">+</span>
+                  </summary>
+                  <p className="mt-3 text-neutral-400 text-sm leading-relaxed">{f.a}</p>
+                </details>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Final CTA ── */}
       <section className="relative w-full px-6 sm:px-10 py-20 md:py-28">
         <Reveal className="mx-auto max-w-4xl">
@@ -233,12 +273,15 @@ export default function Landing() {
 
 /* ── data ── */
 const FEATURES = [
-  { icon: <ShieldIcon />, title: 'Zero-knowledge', desc: 'Dienkripsi di browser kamu. Server nggak pernah lihat password asli.' },
-  { icon: <KeyIcon />, title: 'Satu master password', desc: 'Satu kunci buka semuanya. Kuat by design, nggak pernah disimpan atau dikirim.' },
-  { icon: <PhoneIcon />, title: 'Semua perangkat', desc: 'Buka brankas dari laptop atau HP — datanya didekripsi lokal.' },
-  { icon: <DiceIcon />, title: 'Generator password', desc: 'Bikin password panjang, acak, dan unik buat tiap akun sekali klik.' },
-  { icon: <TimerIcon />, title: 'Kunci otomatis', desc: 'Mengunci sendiri saat idle & hapus kunci dari memori. Clipboard auto-bersih.' },
-  { icon: <SearchIcon />, title: 'Pencarian instan', desc: 'Temukan login mana pun dengan cepat, terorganisir per kategori kamu.' },
+  { icon: <ShieldIcon />, title: 'Zero-knowledge', desc: 'Dienkripsi di browser kamu pakai AES-256-GCM. Server nggak pernah lihat password asli.' },
+  { icon: <LayersIcon />, title: 'Brankas serba-bisa', desc: 'Bukan cuma login — simpan kartu kredit, catatan aman, & identitas di satu tempat.' },
+  { icon: <BoltIcon />, title: '2FA / TOTP bawaan', desc: 'Kode 2FA berputar otomatis di tiap entri. Nggak perlu app authenticator terpisah.' },
+  { icon: <ScanIcon />, title: 'Cek kebocoran', desc: 'Tahu kalau password kamu pernah bocor (HaveIBeenPwned) — tanpa pernah ngirim password aslinya.' },
+  { icon: <FingerprintIcon />, title: 'Buka pakai biometrik', desc: 'Sidik jari atau wajah buat buka cepat. Master password tetap selalu bisa dipakai.' },
+  { icon: <DiceIcon />, title: 'Generator kuat', desc: 'Password acak atau frasa mudah-diingat, lengkap dengan estimasi waktu jebol.' },
+  { icon: <PhoneIcon />, title: 'Jalan offline (PWA)', desc: 'Install di HP, buka layar penuh, dan tetap kebuka walau tanpa internet.' },
+  { icon: <ImportIcon />, title: 'Pindah gampang', desc: 'Import dari Chrome & manager lain lewat CSV, lalu ekspor kapan pun kamu mau.' },
+  { icon: <TimerIcon />, title: 'Kunci otomatis', desc: 'Mengunci sendiri saat idle, hapus kunci dari memori, & auto-bersih clipboard.' },
 ];
 
 const STEPS = [
@@ -252,6 +295,21 @@ const SECURITY = [
   'Enkripsi terautentikasi AES-256-GCM di tiap entri.',
   'Row-level security mengisolasi tiap akun di database.',
   'Nggak ada reset password — karena cuma kamu yang bisa dekripsi.',
+];
+
+const SPECS = [
+  { value: 'AES-256', label: 'Enkripsi GCM terautentikasi' },
+  { value: '600k', label: 'Putaran PBKDF2 per kunci' },
+  { value: '4 tipe', label: 'Login · kartu · catatan · identitas' },
+  { value: '0', label: 'Pelacak & data dikumpulkan' },
+];
+
+const FAQS = [
+  { q: 'Apakah benar-benar aman?', a: 'Ya. Semua dienkripsi di perangkat kamu dengan AES-256-GCM sebelum dikirim. Server cuma menyimpan ciphertext yang teracak — bahkan kami nggak bisa membacanya.' },
+  { q: 'Gimana kalau saya lupa master password?', a: 'Master password adalah satu-satunya kunci dan nggak pernah disimpan. Kalau lupa, datanya nggak bisa dipulihkan — jadi catat baik-baik. Ini konsekuensi wajar dari keamanan zero-knowledge.' },
+  { q: 'Bisa dipakai di HP?', a: 'Bisa. Buka di browser HP, atau install sebagai aplikasi (PWA) buat akses layar penuh & offline. Buka pakai sidik jari atau wajah juga didukung.' },
+  { q: 'Bisa pindah dari Chrome atau manager lain?', a: 'Bisa. Ekspor password kamu ke CSV dari sana, lalu impor di myVault — kolomnya dikenali otomatis. Kamu juga bisa ekspor balik kapan pun.' },
+  { q: 'Selain password, apa lagi yang bisa disimpan?', a: 'Kartu kredit, catatan aman, dan identitas (KTP/paspor) — plus kode 2FA/TOTP yang berputar otomatis di tiap akun, jadi nggak perlu app authenticator terpisah.' },
 ];
 
 // Brands whose logins you can keep in the vault — rendered as a grayscale
@@ -291,9 +349,12 @@ function LockIcon({ className }: { className?: string }) {
   return <Base className={className}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></Base>;
 }
 function ShieldIcon() { return <Base><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></Base>; }
-function KeyIcon() { return <Base><circle cx="7.5" cy="15.5" r="4.5" /><path d="m11 12 8-8 3 3M16 7l2 2" /></Base>; }
 function PhoneIcon() { return <Base><rect x="6" y="2" width="12" height="20" rx="3" /><path d="M11 18h2" /></Base>; }
 function DiceIcon() { return <Base><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1" fill="currentColor" /><circle cx="15.5" cy="15.5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /></Base>; }
 function TimerIcon() { return <Base><circle cx="12" cy="13" r="8" /><path d="M12 13V9M9 2h6" /></Base>; }
-function SearchIcon() { return <Base><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></Base>; }
 function CheckIcon({ className }: { className?: string }) { return <Base className={className}><path d="m20 6-11 11-5-5" /></Base>; }
+function LayersIcon() { return <Base><path d="m12 2 9 5-9 5-9-5 9-5z" /><path d="m3 12 9 5 9-5" /><path d="m3 17 9 5 9-5" /></Base>; }
+function BoltIcon() { return <Base><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" /></Base>; }
+function ScanIcon() { return <Base><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2" /><path d="M4 12h16" /></Base>; }
+function FingerprintIcon() { return <Base><path d="M12 10a2 2 0 0 0-2 2c0 2 .4 4-1 6" /><path d="M6.5 8a6 6 0 0 1 11 4c0 1 0 2-.3 3" /><path d="M9 6.5a6 6 0 0 0-3 5.5c0 3-1 5-2 6" /><path d="M12 14c0 3 0 5-1 7" /><path d="M15.5 16c-.4 2-1 3.5-2 5" /></Base>; }
+function ImportIcon() { return <Base><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></Base>; }
