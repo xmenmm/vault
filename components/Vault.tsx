@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
-import { generatePassword, type GenOpts } from '@/lib/pwgen';
-import { strength } from '@/lib/strength';
+import { generatePassword, generatePassphrase, passphraseEntropy, type GenOpts, type PassphraseOpts } from '@/lib/pwgen';
+import { strength, strengthFromBits, entropyBits, crackTimeLabel } from '@/lib/strength';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 
@@ -577,19 +577,68 @@ function SearchView({
 }
 
 /* ───────────────────────── Keamanan ───────────────────────── */
+const STRENGTH_COLORS = ['#e0503c', '#e0834c', '#e0a13c', '#7bbf4c', '#2bb079'];
+const STRENGTH_LABELS = ['Sangat lemah', 'Lemah', 'Sedang', 'Kuat', 'Sangat kuat'];
+
 function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => void }) {
-  const { total, weak, reused, noPw, flagged } = useMemo(() => {
+  const m = useMemo(() => {
     const pwCount = new Map<string, number>();
     for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
     const weak = items.filter((i) => i.password && i.password.length < 10);
     const reused = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1);
     const noPw = items.filter((i) => !i.password);
+    const withTotp = items.filter((i) => i.totp).length;
     const flagged = [...new Set([...weak, ...reused])];
-    return { total: items.length, weak, reused, noPw, flagged };
+    const dist = [0, 0, 0, 0, 0];
+    for (const i of items) if (i.password) dist[strength(i.password).score]++;
+    const total = items.length;
+    const score = total
+      ? Math.max(0, Math.min(100, Math.round(((total - weak.length - reused.length) / total) * 100)))
+      : 100;
+    return { total, weak, reused, noPw, withTotp, flagged, dist, score };
   }, [items]);
+
+  const { total, weak, reused, noPw, flagged } = m;
+  const scoreColor = m.score >= 80 ? 'var(--ok)' : m.score >= 50 ? '#e0a13c' : 'var(--danger)';
+  const scoreLabel = m.score >= 80 ? 'Sehat' : m.score >= 50 ? 'Perlu perhatian' : 'Berisiko';
+  const totpPct = total ? Math.round((m.withTotp / total) * 100) : 0;
+  const distMax = Math.max(1, ...m.dist);
 
   return (
     <div className="wrap">
+      <div className="sec-top">
+        <div className="panel-card sec-gauge-card">
+          <div className="gauge" style={{ ['--p']: `${m.score}`, ['--c']: scoreColor } as React.CSSProperties}>
+            <div className="gauge-hole">
+              <span className="gauge-n" style={{ color: scoreColor }}>{m.score}</span>
+              <span className="gauge-u">/ 100</span>
+            </div>
+          </div>
+          <div className="gauge-side">
+            <div className="gauge-label" style={{ color: scoreColor }}>{scoreLabel}</div>
+            <p className="gauge-desc">Skor kesehatan brankas dari kekuatan password, pemakaian ulang, dan cakupan 2FA.</p>
+            <div className="sec-mini">
+              <div><b>{m.withTotp}</b><span>pakai 2FA</span></div>
+              <div><b>{total - weak.length}</b><span>password aman</span></div>
+              <div><b>{totpPct}%</b><span>cakupan 2FA</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel-card sec-dist-card">
+          <h3 className="pc-title">Sebaran kekuatan</h3>
+          <div className="dist">
+            {STRENGTH_LABELS.map((lbl, i) => (
+              <div className="dist-row" key={i}>
+                <span className="dist-l">{lbl}</span>
+                <div className="dist-bar"><span style={{ width: `${(m.dist[i] / distMax) * 100}%`, background: STRENGTH_COLORS[i] }} /></div>
+                <span className="dist-n">{m.dist[i]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="stats">
         <Stat n={total} label="Total item" />
         <Stat n={weak.length} label="Password lemah" tone={weak.length ? 'warn' : 'ok'} />
@@ -636,57 +685,112 @@ function Stat({ n, label, tone }: { n: number | string; label: string; tone?: 'w
 }
 
 /* ───────────────────────── Generator ───────────────────────── */
+const GEN_TIPS = [
+  'Pakai password unik di tiap akun — biar bocor satu, yang lain tetap aman.',
+  'Lebih panjang lebih kuat: tiap karakter tambahan melipatgandakan kemungkinan.',
+  'Frasa gampang diingat — makin banyak kata, makin susah ditebak.',
+  'Aktifkan 2FA di akun penting — password saja nggak cukup.',
+];
+
 function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
+  const [mode, setMode] = useState<'random' | 'phrase'>('random');
   const [pw, setPw] = useState('');
   const [opts, setOpts] = useState<GenOpts>({ length: 18, lower: true, upper: true, digit: true, symbol: true });
-  const numStyle = { width: 64, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' } as const;
-  const st = strength(pw);
+  const [pOpts, setPOpts] = useState<PassphraseOpts>({ words: 6, separator: '-', number: true, capitalize: true });
 
-  function gen() {
-    setPw(generatePassword(opts));
-  }
-  useEffect(() => {
-    gen();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const gen = useCallback(() => {
+    setPw(mode === 'phrase' ? generatePassphrase(pOpts) : generatePassword(opts));
+  }, [mode, opts, pOpts]);
+  useEffect(() => { gen(); }, [gen]);
+
+  const bits = mode === 'phrase' ? passphraseEntropy(pOpts) : entropyBits(pw);
+  const st = strengthFromBits(bits);
+  const crack = crackTimeLabel(bits);
+
+  const sel = {
+    padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border)',
+    background: 'var(--panel-2)', color: 'var(--text)', fontSize: 13, cursor: 'pointer',
+  } as const;
 
   return (
     <div className="wrap">
-      <div className="panel-card">
-        <div className="row2">
-          <input className="input" style={{ marginBottom: 0, fontFamily: 'ui-monospace, monospace', fontSize: 16 }} readOnly value={pw} />
-          <button type="button" className="btn" onClick={gen}>
-            Buat
-          </button>
+      <div className="panel-card gen-card">
+        <div className="seg" style={{ marginBottom: 16 }}>
+          <button className={`seg-btn ${mode === 'random' ? 'on' : ''}`} onClick={() => setMode('random')}>🎲 Acak</button>
+          <button className={`seg-btn ${mode === 'phrase' ? 'on' : ''}`} onClick={() => setMode('phrase')}>📝 Frasa</button>
         </div>
+
+        <div className="gen-out">
+          <span className="gen-pw">{pw || '—'}</span>
+          <button type="button" className="iconbtn" title="Buat ulang" onClick={gen}><RefreshIcon /></button>
+        </div>
+
         {pw && (
-          <div className="strength">
-            <div className="strength-bar"><span style={{ width: `${(st.score + 1) * 20}%`, background: st.color }} /></div>
-            <span className="strength-label" style={{ color: st.color }}>{st.label}</span>
-          </div>
+          <>
+            <div className="strength" style={{ marginTop: 12 }}>
+              <div className="strength-bar"><span style={{ width: `${(st.score + 1) * 20}%`, background: st.color }} /></div>
+              <span className="strength-label" style={{ color: st.color }}>{st.label}</span>
+            </div>
+            <div className="gen-meta">
+              <span>🛡️ Perlu <b style={{ color: st.color }}>{crack}</b> buat dijebol</span>
+              <span className="gen-bits">{bits} bit</span>
+            </div>
+          </>
         )}
-        <button type="button" className="btn sec" style={{ width: '100%', marginTop: 10 }} onClick={() => pw && onCopy(pw, 'Password')}>
-          Salin
-        </button>
-        <div className="opts" style={{ marginTop: 18 }}>
-          <label>
-            Panjang
-            <input
-              type="number"
-              min={8}
-              max={64}
-              value={opts.length}
-              onChange={(e) => setOpts((o) => ({ ...o, length: Math.max(8, Math.min(64, +e.target.value || 8)) }))}
-              style={numStyle}
-            />
-          </label>
-          {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
-            <label key={k}>
-              <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
-              {GEN_LABELS[k]}
-            </label>
-          ))}
+
+        <div className="row2" style={{ marginTop: 14 }}>
+          <button type="button" className="btn" style={{ flex: 1 }} onClick={() => pw && onCopy(pw, 'Password')}>📋 Salin</button>
+          <button type="button" className="btn sec" onClick={gen}>Buat baru</button>
         </div>
+
+        <div className="gen-controls">
+          {mode === 'random' ? (
+            <>
+              <label className="gen-slider">
+                <span>Panjang <b>{opts.length}</b></span>
+                <input type="range" min={8} max={48} value={opts.length}
+                  onChange={(e) => setOpts((o) => ({ ...o, length: +e.target.value }))} />
+              </label>
+              <div className="opts" style={{ marginTop: 6 }}>
+                {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
+                  <label key={k}>
+                    <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
+                    {GEN_LABELS[k]}
+                  </label>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <label className="gen-slider">
+                <span>Jumlah kata <b>{pOpts.words}</b></span>
+                <input type="range" min={3} max={8} value={pOpts.words}
+                  onChange={(e) => setPOpts((o) => ({ ...o, words: +e.target.value }))} />
+              </label>
+              <div className="opts" style={{ marginTop: 6 }}>
+                <label><input type="checkbox" checked={pOpts.capitalize} onChange={(e) => setPOpts((o) => ({ ...o, capitalize: e.target.checked }))} />Kapital</label>
+                <label><input type="checkbox" checked={pOpts.number} onChange={(e) => setPOpts((o) => ({ ...o, number: e.target.checked }))} />Angka</label>
+                <label style={{ gap: 6 }}>Pemisah
+                  <select value={pOpts.separator} onChange={(e) => setPOpts((o) => ({ ...o, separator: e.target.value }))} style={sel}>
+                    <option value="-">- (strip)</option>
+                    <option value=".">. (titik)</option>
+                    <option value="_">_ (garis)</option>
+                    <option value=" ">spasi</option>
+                  </select>
+                </label>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="panel-card gen-tips">
+        <h3 className="pc-title">💡 Tips password kuat</h3>
+        <ul className="tip-list">
+          {GEN_TIPS.map((t, i) => (
+            <li key={i}><span className="tip-dot" />{t}</li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -1095,6 +1199,7 @@ function LinkIcon() { return <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 
 function EditIcon() { return <svg viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>; }
 function TrashIcon() { return <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" /></svg>; }
 function LoginIcon() { return <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5" /><path d="M15 12H3" /></svg>; }
+function RefreshIcon() { return <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></svg>; }
 
 /* ─────────────────── "Buka & login" terpandu ─────────────────── */
 // A floating bar that walks the user through a 2-step login on mobile: it can't
