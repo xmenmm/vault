@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useLang } from '@/lib/i18n';
 
 // A glassy preview of the actual vault, used as the landing/login hero.
 // Tilts in 3D toward the mouse (parallax) — pure CSS transforms + a tiny
@@ -18,6 +19,10 @@ const REST = { rx: 6, ry: -12 };
 export function VaultPreview() {
   const ref = useRef<HTMLDivElement>(null);
   const [t, setT] = useState(REST);
+  const [lang] = useLang();
+  const c = lang === 'en'
+    ? { encrypted: 'Encrypted', search: 'Search logins…', saved: '12 logins saved', score: '100% secure score' }
+    : { encrypted: 'Terenkripsi', search: 'Cari login…', saved: '12 login tersimpan', score: 'Skor aman 100%' };
 
   function onMove(e: React.MouseEvent) {
     const el = ref.current;
@@ -63,13 +68,13 @@ export function VaultPreview() {
                 🔐 my<span className="text-[#7aa2ff]">Vault</span>
               </div>
               <span className="flex items-center gap-1.5 rounded-full border border-[#2bb079]/25 bg-[#2bb079]/12 px-2.5 py-1 text-[11px] font-medium text-[#2bb079]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2bb079]" /> Terenkripsi
+                <span className="h-1.5 w-1.5 rounded-full bg-[#2bb079]" /> {c.encrypted}
               </span>
             </div>
 
             {/* search */}
             <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-[13px] text-neutral-500">
-              <SearchMini /> Cari login…
+              <SearchMini /> {c.search}
             </div>
 
             {/* items */}
@@ -101,8 +106,8 @@ export function VaultPreview() {
 
             {/* footer */}
             <div className="mt-4 flex items-center justify-between text-[12px] text-neutral-500">
-              <span>12 login tersimpan</span>
-              <span className="text-[#2bb079]">Skor aman 100%</span>
+              <span>{c.saved}</span>
+              <span className="text-[#2bb079]">{c.score}</span>
             </div>
           </div>
 
