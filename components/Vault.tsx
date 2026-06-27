@@ -11,7 +11,9 @@ import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
 import { biometricAvailable, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/webauthn';
 
 type CustomField = { label: string; value: string };
+type ItemType = 'login' | 'card' | 'note' | 'identity';
 type Fields = {
+  type?: ItemType;
   title: string;
   username: string;
   password: string;
@@ -21,12 +23,34 @@ type Fields = {
   favorite?: boolean;
   totp?: string;
   customFields?: CustomField[];
+  // Kartu kredit/debit
+  cardHolder?: string;
+  cardNumber?: string;
+  cardExpiry?: string;
+  cardCvv?: string;
+  // Identitas
+  fullName?: string;
+  idNumber?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
 };
 type Item = Fields & { id: string; createdAt?: string; updatedAt?: string };
 type View = 'overview' | 'vault' | 'search' | 'favorites' | 'security' | 'generator' | 'backup' | 'settings' | 'faq';
 
+const ITEM_TYPES: { key: ItemType; label: string; icon: string }[] = [
+  { key: 'login', label: 'Login', icon: '🔑' },
+  { key: 'card', label: 'Kartu', icon: '💳' },
+  { key: 'note', label: 'Catatan', icon: '📝' },
+  { key: 'identity', label: 'Identitas', icon: '🪪' },
+];
+const typeOf = (it: { type?: ItemType }): ItemType => it.type ?? 'login';
+const typeMeta = (t: ItemType) => ITEM_TYPES.find((x) => x.key === t) ?? ITEM_TYPES[0];
+
 const EMPTY: Fields = {
-  title: '', username: '', password: '', url: '', notes: '', category: '', favorite: false, totp: '', customFields: [],
+  type: 'login', title: '', username: '', password: '', url: '', notes: '', category: '', favorite: false, totp: '', customFields: [],
+  cardHolder: '', cardNumber: '', cardExpiry: '', cardCvv: '',
+  fullName: '', idNumber: '', phone: '', email: '', address: '',
 };
 
 const TITLES: Record<View, string> = {
@@ -311,7 +335,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
             setEditing('new');
           }}
         >
-          + Tambah login
+          + Tambah item
         </button>
 
         <p className="side-label">Menu</p>
@@ -460,12 +484,14 @@ function OverviewView({
   const fav = items.filter((i) => i.favorite).length;
   const cats = new Set(items.filter((i) => i.category.trim()).map((i) => i.category.trim())).size;
   const withTotp = items.filter((i) => i.totp).length;
+  const loginCount = items.filter((i) => typeOf(i) === 'login').length;
+  const withPw = items.filter((i) => !!i.password).length;
   const weak = items.filter((i) => i.password && i.password.length < 10).length;
-  const noPw = items.filter((i) => !i.password).length;
+  const noPw = items.filter((i) => typeOf(i) === 'login' && !i.password).length;
   const pwCount = new Map<string, number>();
   for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
   const reused = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1).length;
-  const score = items.length ? Math.round(((items.length - weak) / items.length) * 100) : 100;
+  const score = withPw ? Math.round(((withPw - weak) / withPw) * 100) : 100;
   const recent = items.slice(0, 6);
 
   const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -474,8 +500,8 @@ function OverviewView({
   const attention: { label: string; n: number; hint: string; tone: string }[] = [
     { label: 'Password lemah', n: weak, hint: 'terlalu pendek', tone: weak ? 'warn' : 'ok' },
     { label: 'Dipakai ulang', n: reused, hint: 'di >1 akun', tone: reused ? 'warn' : 'ok' },
-    { label: 'Tanpa 2FA', n: items.length - withTotp, hint: 'belum ada TOTP', tone: 'muted' },
-    { label: 'Tanpa password', n: noPw, hint: 'kosong', tone: noPw ? 'warn' : 'ok' },
+    { label: 'Tanpa 2FA', n: Math.max(0, loginCount - withTotp), hint: 'belum ada TOTP', tone: 'muted' },
+    { label: 'Tanpa password', n: noPw, hint: 'login kosong', tone: noPw ? 'warn' : 'ok' },
   ];
 
   return (
@@ -490,7 +516,7 @@ function OverviewView({
       </div>
 
       <div className="stats">
-        <Stat n={items.length} label="Total login" />
+        <Stat n={items.length} label="Total item" />
         <Stat n={cats} label="Kategori" />
         <Stat n={fav} label="Favorit" />
         <Stat n={withTotp} label="Dengan 2FA" />
@@ -511,7 +537,7 @@ function OverviewView({
           </div>
           <p className="sec-hint" style={{ marginTop: 22 }}>Aksi cepat</p>
           <div className="quick">
-            <button className="qbtn" onClick={onAdd}>➕<span>Tambah login</span></button>
+            <button className="qbtn" onClick={onAdd}>➕<span>Tambah item</span></button>
             <button className="qbtn" onClick={() => onNav('generator')}>🎲<span>Generator</span></button>
             <button className="qbtn" onClick={() => onNav('backup')}>📦<span>Backup</span></button>
           </div>
@@ -521,7 +547,7 @@ function OverviewView({
           {recent.length ? (
             recent.map((it) => <ItemRow key={it.id} item={it} {...row} />)
           ) : (
-            <div className="empty">Belum ada item. Klik ➕ Tambah login buat mulai.</div>
+            <div className="empty">Belum ada item. Klik ➕ Tambah item buat mulai.</div>
           )}
         </div>
       </div>
@@ -589,22 +615,25 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
     for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
     const weak = items.filter((i) => i.password && i.password.length < 10);
     const reused = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1);
-    const noPw = items.filter((i) => !i.password);
+    // Only login items are expected to have a password — don't flag cards/notes.
+    const noPw = items.filter((i) => typeOf(i) === 'login' && !i.password);
+    const withPw = items.filter((i) => !!i.password).length;
+    const loginCount = items.filter((i) => typeOf(i) === 'login').length;
     const withTotp = items.filter((i) => i.totp).length;
     const flagged = [...new Set([...weak, ...reused])];
     const dist = [0, 0, 0, 0, 0];
     for (const i of items) if (i.password) dist[strength(i.password).score]++;
     const total = items.length;
-    const score = total
-      ? Math.max(0, Math.min(100, Math.round(((total - weak.length - reused.length) / total) * 100)))
+    const score = withPw
+      ? Math.max(0, Math.min(100, Math.round(((withPw - weak.length - reused.length) / withPw) * 100)))
       : 100;
-    return { total, weak, reused, noPw, withTotp, flagged, dist, score };
+    return { total, weak, reused, noPw, withPw, loginCount, withTotp, flagged, dist, score };
   }, [items]);
 
   const { total, weak, reused, noPw, flagged } = m;
   const scoreColor = m.score >= 80 ? 'var(--ok)' : m.score >= 50 ? '#e0a13c' : 'var(--danger)';
   const scoreLabel = m.score >= 80 ? 'Sehat' : m.score >= 50 ? 'Perlu perhatian' : 'Berisiko';
-  const totpPct = total ? Math.round((m.withTotp / total) * 100) : 0;
+  const totpPct = m.loginCount ? Math.round((m.withTotp / m.loginCount) * 100) : 0;
   const distMax = Math.max(1, ...m.dist);
 
   const [scan, setScan] = useState<{
@@ -654,7 +683,7 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
             <p className="gauge-desc">Skor kesehatan brankas dari kekuatan password, pemakaian ulang, dan cakupan 2FA.</p>
             <div className="sec-mini">
               <div><b>{m.withTotp}</b><span>pakai 2FA</span></div>
-              <div><b>{total - weak.length}</b><span>password aman</span></div>
+              <div><b>{Math.max(0, m.withPw - weak.length)}</b><span>password aman</span></div>
               <div><b>{totpPct}%</b><span>cakupan 2FA</span></div>
             </div>
           </div>
@@ -1250,6 +1279,13 @@ function hl(text: string, q?: string): React.ReactNode {
   );
 }
 
+const onlyDigits = (s: string) => (s || '').replace(/\D/g, '');
+const maskCard = (n: string) => {
+  const d = onlyDigits(n);
+  return d ? `•••• •••• •••• ${d.slice(-4)}` : '';
+};
+const groupCard = (n: string) => onlyDigits(n).replace(/(.{4})(?=.)/g, '$1 ');
+
 function ItemRow({
   item,
   highlight,
@@ -1261,24 +1297,49 @@ function ItemRow({
 }: { item: Item; highlight?: string } & RowProps) {
   const [show, setShow] = useState(false);
   const [imgErr, setImgErr] = useState(false);
-  const initial = (item.title || item.username || '?').charAt(0).toUpperCase();
-  const href = /^https?:\/\//.test(item.url) ? item.url : `https://${item.url}`;
+  const t = typeOf(item);
   const title = item.title || '(tanpa judul)';
+  const href = /^https?:\/\//.test(item.url) ? item.url : `https://${item.url}`;
   const domain = item.url ? item.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : '';
   const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64` : '';
+  const initial = (item.title || item.username || '?').charAt(0).toUpperCase();
+
+  const cardNumber = item.cardNumber || '';
+  const notes = item.notes || '';
+  const idNumber = item.idNumber || '';
+  // Which types have something worth hiding behind the eye toggle.
+  const hasSecret =
+    (t === 'login' && !!item.password) ||
+    (t === 'card' && (!!cardNumber || !!item.cardCvv)) ||
+    (t === 'note' && !!notes) ||
+    (t === 'identity' && !!(item.email || item.phone || item.address || idNumber));
+
+  const idRow = (label: string, value?: string, copyLabel?: string) =>
+    value ? (
+      <div className="cf-row">
+        <span className="cf-label">{label}</span>
+        <span className="cf-val">{value}</span>
+        <button className="iconbtn" title="Salin" onClick={() => onCopy(value, copyLabel || label)}>
+          <CopyIcon />
+        </button>
+      </div>
+    ) : null;
+
   return (
     <div className="item">
-      <div className="ic">
-        {favicon && !imgErr ? (
+      <div className={`ic ic-${t}`}>
+        {t === 'login' && favicon && !imgErr ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={favicon} alt="" width={22} height={22} onError={() => setImgErr(true)} />
-        ) : (
+        ) : t === 'login' ? (
           initial
+        ) : (
+          <span className="ic-emoji">{typeMeta(t).icon}</span>
         )}
       </div>
       <div className="info">
         <div className="title-row">
-          {item.url ? (
+          {t === 'login' && item.url ? (
             <a className="ttl ttl-link" href={href} target="_blank" rel="noreferrer" title="Buka situs">
               {hl(title, highlight)} ↗
             </a>
@@ -1286,11 +1347,41 @@ function ItemRow({
             <span className="ttl">{hl(title, highlight)}</span>
           )}
           {item.category && <span className="cat">{hl(item.category, highlight)}</span>}
-          {item.password && <StrengthDot pw={item.password} />}
+          {t === 'login' && item.password && <StrengthDot pw={item.password} />}
         </div>
-        {item.username && <div className="usr">{hl(item.username, highlight)}</div>}
-        {item.totp && <TotpBadge secret={item.totp} onCopy={onCopy} />}
-        {show && item.password && <div className="pw">{item.password}</div>}
+
+        {/* Type-specific subtitle */}
+        {t === 'login' && item.username && <div className="usr">{hl(item.username, highlight)}</div>}
+        {t === 'card' && cardNumber && (
+          <div className="usr mono">{show ? groupCard(cardNumber) : maskCard(cardNumber)}</div>
+        )}
+        {t === 'card' && item.cardHolder && <div className="usr">{hl(item.cardHolder, highlight)}</div>}
+        {t === 'note' && notes && <div className={`usr ${show ? '' : 'note-preview'}`}>{notes.split('\n')[0]}</div>}
+        {t === 'identity' && (item.fullName || idNumber) && (
+          <div className="usr">
+            {hl(item.fullName || '', highlight)}
+            {item.fullName && idNumber ? ' · ' : ''}
+            {idNumber}
+          </div>
+        )}
+
+        {t === 'login' && item.totp && <TotpBadge secret={item.totp} onCopy={onCopy} />}
+
+        {/* Expanded details */}
+        {show && t === 'login' && item.password && <div className="pw">{item.password}</div>}
+        {show && t === 'card' && (
+          <>
+            {idRow('Exp', item.cardExpiry, 'Kadaluarsa')}
+            {idRow('CVV', item.cardCvv)}
+          </>
+        )}
+        {show && t === 'identity' && (
+          <>
+            {idRow('Email', item.email)}
+            {idRow('Telepon', item.phone)}
+            {idRow('Alamat', item.address)}
+          </>
+        )}
         {show &&
           (item.customFields ?? [])
             .filter((c) => c.label || c.value)
@@ -1305,10 +1396,10 @@ function ItemRow({
                 )}
               </div>
             ))}
-        {show && item.notes && <div className="note-row">{item.notes}</div>}
+        {show && notes && <div className="note-row">{notes}</div>}
       </div>
       <div className="acts">
-        {onLogin && item.url && item.password && (
+        {t === 'login' && onLogin && item.url && item.password && (
           <button className="iconbtn go" title="Buka & login terpandu" onClick={() => onLogin(item)}>
             <LoginIcon />
           </button>
@@ -1320,22 +1411,37 @@ function ItemRow({
         >
           <StarIcon filled={item.favorite} />
         </button>
-        {item.username && (
+        {t === 'login' && item.username && (
           <button className="iconbtn" title="Salin username" onClick={() => onCopy(item.username, 'Username')}>
             <UserIcon />
           </button>
         )}
-        {item.password && (
+        {t === 'login' && item.password && (
           <button className="iconbtn primary" title="Salin password" onClick={() => onCopy(item.password, 'Password')}>
             <CopyIcon />
           </button>
         )}
-        {item.password && (
-          <button className="iconbtn" title={show ? 'Sembunyikan' : 'Lihat password'} onClick={() => setShow((s) => !s)}>
+        {t === 'card' && cardNumber && (
+          <button className="iconbtn primary" title="Salin nomor kartu" onClick={() => onCopy(onlyDigits(cardNumber), 'Nomor kartu')}>
+            <CopyIcon />
+          </button>
+        )}
+        {t === 'note' && notes && (
+          <button className="iconbtn primary" title="Salin catatan" onClick={() => onCopy(notes, 'Catatan')}>
+            <CopyIcon />
+          </button>
+        )}
+        {t === 'identity' && idNumber && (
+          <button className="iconbtn primary" title="Salin nomor identitas" onClick={() => onCopy(idNumber, 'Nomor identitas')}>
+            <CopyIcon />
+          </button>
+        )}
+        {hasSecret && (
+          <button className="iconbtn" title={show ? 'Sembunyikan' : 'Lihat detail'} onClick={() => setShow((s) => !s)}>
             {show ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         )}
-        {item.url && (
+        {t === 'login' && item.url && (
           <a className="iconbtn" title="Buka situs" href={href} target="_blank" rel="noreferrer">
             <LinkIcon />
           </a>
@@ -1506,73 +1612,148 @@ function ItemModal({
       <div className="modal">
         <h2>{id ? 'Edit entri' : 'Entri baru'}</h2>
         <form onSubmit={submit}>
-          <label className="fld">Judul</label>
-          <input className="input" autoFocus required value={f.title} onChange={(e) => set('title', e.target.value)} placeholder="Facebook" />
-
-          <label className="fld">Username / email</label>
-          <input className="input" value={f.username} onChange={(e) => set('username', e.target.value)} placeholder="kamu@email.com" />
-
-          <label className="fld">Password</label>
-          <div className="row2">
-            <input className="input" value={f.password} onChange={(e) => set('password', e.target.value)} placeholder="••••••••" />
-            <button type="button" className="btn sec" onClick={() => setShowGen((s) => !s)}>
-              ⚙
-            </button>
+          <label className="fld">Tipe</label>
+          <div className="seg type-seg" style={{ marginBottom: 14 }}>
+            {ITEM_TYPES.map((it) => (
+              <button
+                key={it.key}
+                type="button"
+                className={`seg-btn ${typeOf(f) === it.key ? 'on' : ''}`}
+                onClick={() => setF((p) => ({ ...p, type: it.key }))}
+              >
+                {it.icon} {it.label}
+              </button>
+            ))}
           </div>
-          {f.password && (
-            <div className="strength" style={{ margin: '-4px 0 12px' }}>
-              <div className="strength-bar"><span style={{ width: `${(st.score + 1) * 20}%`, background: st.color }} /></div>
-              <span className="strength-label" style={{ color: st.color }}>{st.label}</span>
-            </div>
-          )}
 
-          {showGen && (
-            <div className="gen">
+          <label className="fld">Judul</label>
+          <input
+            className="input"
+            autoFocus
+            required
+            value={f.title}
+            onChange={(e) => set('title', e.target.value)}
+            placeholder={
+              typeOf(f) === 'card' ? 'Kartu BCA' : typeOf(f) === 'note' ? 'Catatan WiFi' : typeOf(f) === 'identity' ? 'KTP' : 'Facebook'
+            }
+          />
+
+          {typeOf(f) === 'login' && (
+            <>
+              <label className="fld">Username / email</label>
+              <input className="input" value={f.username} onChange={(e) => set('username', e.target.value)} placeholder="kamu@email.com" />
+
+              <label className="fld">Password</label>
               <div className="row2">
-                <input className="input" style={{ marginBottom: 0 }} readOnly value={f.password} />
-                <button type="button" className="btn" onClick={() => set('password', generatePassword(opts))}>
-                  Buat
-                </button>
+                <input className="input" value={f.password} onChange={(e) => set('password', e.target.value)} placeholder="••••••••" />
+                <button type="button" className="btn sec" onClick={() => setShowGen((s) => !s)}>⚙</button>
               </div>
-              <div className="opts">
-                <label>
-                  Pjg
-                  <input
-                    type="number"
-                    min={8}
-                    max={64}
-                    value={opts.length}
-                    onChange={(e) => setOpts((o) => ({ ...o, length: Math.max(8, Math.min(64, +e.target.value || 8)) }))}
-                    style={{ width: 56, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
-                  />
-                </label>
-                {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
-                  <label key={k}>
-                    <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
-                    {GEN_LABELS[k]}
-                  </label>
-                ))}
-              </div>
-            </div>
+              {f.password && (
+                <div className="strength" style={{ margin: '-4px 0 12px' }}>
+                  <div className="strength-bar"><span style={{ width: `${(st.score + 1) * 20}%`, background: st.color }} /></div>
+                  <span className="strength-label" style={{ color: st.color }}>{st.label}</span>
+                </div>
+              )}
+              {showGen && (
+                <div className="gen">
+                  <div className="row2">
+                    <input className="input" style={{ marginBottom: 0 }} readOnly value={f.password} />
+                    <button type="button" className="btn" onClick={() => set('password', generatePassword(opts))}>Buat</button>
+                  </div>
+                  <div className="opts">
+                    <label>
+                      Pjg
+                      <input
+                        type="number"
+                        min={8}
+                        max={64}
+                        value={opts.length}
+                        onChange={(e) => setOpts((o) => ({ ...o, length: Math.max(8, Math.min(64, +e.target.value || 8)) }))}
+                        style={{ width: 56, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                      />
+                    </label>
+                    {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
+                      <label key={k}>
+                        <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
+                        {GEN_LABELS[k]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <label className="fld">Website (opsional)</label>
+              <input className="input" value={f.url} onChange={(e) => set('url', e.target.value)} placeholder="facebook.com" />
+
+              <label className="fld">Kode 2FA / TOTP (opsional)</label>
+              <input
+                className="input"
+                value={f.totp ?? ''}
+                onChange={(e) => set('totp', e.target.value)}
+                placeholder="Secret base32, mis. JBSWY3DPEHPK3PXP"
+                style={{ fontFamily: 'ui-monospace, monospace' }}
+              />
+            </>
           )}
 
-          <label className="fld">Website (opsional)</label>
-          <input className="input" value={f.url} onChange={(e) => set('url', e.target.value)} placeholder="facebook.com" />
+          {typeOf(f) === 'card' && (
+            <>
+              <label className="fld">Nama di kartu</label>
+              <input className="input" value={f.cardHolder ?? ''} onChange={(e) => set('cardHolder', e.target.value)} placeholder="NAMA LENGKAP" />
+
+              <label className="fld">Nomor kartu</label>
+              <input
+                className="input"
+                value={f.cardNumber ?? ''}
+                onChange={(e) => set('cardNumber', e.target.value)}
+                placeholder="1234 5678 9012 3456"
+                inputMode="numeric"
+                style={{ fontFamily: 'ui-monospace, monospace' }}
+              />
+
+              <div className="row2">
+                <div style={{ flex: 1 }}>
+                  <label className="fld">Masa berlaku</label>
+                  <input className="input" style={{ marginBottom: 0 }} value={f.cardExpiry ?? ''} onChange={(e) => set('cardExpiry', e.target.value)} placeholder="MM/YY" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="fld">CVV</label>
+                  <input className="input" style={{ marginBottom: 0 }} value={f.cardCvv ?? ''} onChange={(e) => set('cardCvv', e.target.value)} placeholder="123" inputMode="numeric" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {typeOf(f) === 'identity' && (
+            <>
+              <label className="fld">Nama lengkap</label>
+              <input className="input" value={f.fullName ?? ''} onChange={(e) => set('fullName', e.target.value)} placeholder="Nama sesuai identitas" />
+
+              <label className="fld">Nomor identitas (KTP / NIK / Paspor)</label>
+              <input
+                className="input"
+                value={f.idNumber ?? ''}
+                onChange={(e) => set('idNumber', e.target.value)}
+                placeholder="3201xxxxxxxxxxxx"
+                style={{ fontFamily: 'ui-monospace, monospace' }}
+              />
+
+              <label className="fld">Email (opsional)</label>
+              <input className="input" value={f.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="kamu@email.com" />
+
+              <label className="fld">Telepon (opsional)</label>
+              <input className="input" value={f.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="08xxxxxxxxxx" />
+
+              <label className="fld">Alamat (opsional)</label>
+              <textarea className="input" rows={2} value={f.address ?? ''} onChange={(e) => set('address', e.target.value)} style={{ resize: 'vertical' }} />
+            </>
+          )}
 
           <label className="fld">Kategori (opsional)</label>
           <input className="input" value={f.category} onChange={(e) => set('category', e.target.value)} placeholder="Sosial" />
 
           <label className="fld">Catatan (opsional)</label>
-          <textarea className="input" rows={3} value={f.notes} onChange={(e) => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
-
-          <label className="fld">Kode 2FA / TOTP (opsional)</label>
-          <input
-            className="input"
-            value={f.totp ?? ''}
-            onChange={(e) => set('totp', e.target.value)}
-            placeholder="Secret base32, mis. JBSWY3DPEHPK3PXP"
-            style={{ fontFamily: 'ui-monospace, monospace' }}
-          />
+          <textarea className="input" rows={typeOf(f) === 'note' ? 6 : 3} value={f.notes} onChange={(e) => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
 
           <label className="fld">Field tambahan (opsional)</label>
           {(f.customFields ?? []).map((field, i) => (
