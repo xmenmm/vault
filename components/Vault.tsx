@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
 import { generatePassword, generatePassphrase, passphraseEntropy, passwordEntropy, type GenOpts, type PassphraseOpts } from '@/lib/pwgen';
 import { strength, strengthFromBits, crackTimeLabel } from '@/lib/strength';
@@ -86,6 +86,9 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [view, setView] = useState<View>('overview');
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Recently-deleted item kept briefly so a delete can be undone (no confirm prompt).
+  const [undo, setUndo] = useState<Fields | null>(null);
+  const undoTimer = useRef<number | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [themePref, setThemePref] = useState<'system' | 'dark' | 'light'>('system');
   // "Buka & login" terpandu — sequences copy-username → open-site → copy-password
@@ -200,15 +203,39 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)));
   }
 
-  async function remove(id: string) {
-    if (!window.confirm(t.confirmDeleteOne)) return;
+  async function remove(it: Item) {
+    // No confirm dialog — deleting surfaces an "Undo" bar for a few seconds.
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    const { id, createdAt: _c, updatedAt: _u, ...fields } = it;
+    void _c;
+    void _u;
+    setItems((prev) => prev.filter((p) => p.id !== id));
+    setUndo(fields);
+    undoTimer.current = window.setTimeout(() => setUndo(null), 6000);
     await fetch('/api/vault', {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    flash(t.deleted);
-    load();
+  }
+
+  async function undoDelete() {
+    if (!undo) return;
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    const fields = undo;
+    setUndo(null);
+    try {
+      const data = await encryptStr(keys.encKey, JSON.stringify(fields));
+      await fetch('/api/vault', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ data }),
+      });
+      flash(t.restored);
+      load();
+    } catch {
+      flash(t.saveFailedConn);
+    }
   }
 
   async function deleteAll() {
@@ -554,6 +581,13 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         </div>
       )}
 
+      {undo && (
+        <div className="undobar">
+          <span>{t.deleted}</span>
+          <button className="undo-btn" onClick={undoDelete}>↩ {t.undo}</button>
+        </div>
+      )}
+
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
@@ -562,7 +596,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 type RowProps = {
   onCopy: (t: string, l: string) => void;
   onEditItem: (it: Item) => void;
-  onDelete: (id: string) => void;
+  onDelete: (it: Item) => void;
   onToggleFav: (it: Item) => void;
   onLogin?: (it: Item) => void;
 };
@@ -1686,7 +1720,7 @@ function ItemRow({
         <button className="iconbtn" title={t.rowEdit} onClick={() => onEditItem(item)}>
           <EditIcon />
         </button>
-        <button className="iconbtn danger" title={t.rowDelete} onClick={() => onDelete(item.id)}>
+        <button className="iconbtn danger" title={t.rowDelete} onClick={() => onDelete(item)}>
           <TrashIcon />
         </button>
       </div>
