@@ -14,6 +14,18 @@ export type GenOpts = {
   symbol: boolean;
 };
 
+// Entropy of a random password from its CONFIG (deterministic + matches the
+// actual generator pools, which exclude ambiguous chars), not from the output.
+export function passwordEntropy(opts: GenOpts): number {
+  let pool = 0;
+  if (opts.lower) pool += SETS.lower.length;
+  if (opts.upper) pool += SETS.upper.length;
+  if (opts.digit) pool += SETS.digit.length;
+  if (opts.symbol) pool += SETS.symbol.length;
+  if (!pool) pool = SETS.lower.length + SETS.upper.length + SETS.digit.length;
+  return Math.round(opts.length * Math.log2(pool));
+}
+
 export function generatePassword(opts: GenOpts): string {
   let pool = '';
   if (opts.lower) pool += SETS.lower;

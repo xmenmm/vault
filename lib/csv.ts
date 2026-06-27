@@ -51,10 +51,20 @@ export type CsvLogin = { title: string; username: string; password: string; url:
 export function csvToLogins(rows: string[][]): CsvLogin[] {
   if (rows.length < 2) return [];
   const header = rows[0].map((h) => h.trim().toLowerCase());
-  const col = (...names: string[]) => header.findIndex((h) => names.includes(h));
+  // Resolve by synonym precedence (earlier names win), not by header position —
+  // so a real "username" column is preferred over an "email" column even if
+  // email appears first, and the two never collide on the same slot.
+  const col = (...names: string[]) => {
+    for (const n of names) {
+      const i = header.indexOf(n);
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
 
   const ti = col('name', 'title', 'judul', 'account');
-  const ui = col('username', 'user', 'login', 'login_username', 'email', 'e-mail', 'login_uri_username');
+  const ui = col('username', 'user', 'login', 'login_username', 'login_uri_username');
+  const emailI = col('email', 'e-mail');
   const pi = col('password', 'pass', 'pwd', 'login_password');
   const urli = col('url', 'website', 'web', 'site', 'login_uri', 'uri', 'hostname');
   const ni = col('note', 'notes', 'catatan', 'comment', 'comments', 'extra');
@@ -63,7 +73,7 @@ export function csvToLogins(rows: string[][]): CsvLogin[] {
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r];
     const get = (idx: number) => (idx >= 0 && idx < row.length ? row[idx].trim() : '');
-    const username = get(ui);
+    const username = get(ui) || get(emailI); // prefer username, fall back to email
     const password = get(pi);
     const url = get(urli);
     const title = get(ti) || url || username;

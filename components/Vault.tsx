@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
-import { generatePassword, generatePassphrase, passphraseEntropy, type GenOpts, type PassphraseOpts } from '@/lib/pwgen';
-import { strength, strengthFromBits, entropyBits, crackTimeLabel } from '@/lib/strength';
+import { generatePassword, generatePassphrase, passphraseEntropy, passwordEntropy, type GenOpts, type PassphraseOpts } from '@/lib/pwgen';
+import { strength, strengthFromBits, crackTimeLabel } from '@/lib/strength';
 import { pwnedCount } from '@/lib/breach';
 import { parseCsv, csvToLogins, toCsv } from '@/lib/csv';
 import { totpCode, totpRemaining } from '@/lib/totp';
@@ -24,6 +24,9 @@ type Fields = {
   favorite?: boolean;
   totp?: string;
   customFields?: CustomField[];
+  // When the password was last changed (set only on password change) — used for
+  // the "password lama" reminder so unrelated edits (favorite, title) don't reset it.
+  passwordUpdatedAt?: string;
   // Kartu kredit/debit
   cardHolder?: string;
   cardNumber?: string;
@@ -509,13 +512,20 @@ function OverviewView({
   const withTotp = items.filter((i) => i.totp).length;
   const loginCount = items.filter((i) => typeOf(i) === 'login').length;
   const withPw = items.filter((i) => !!i.password).length;
-  const weak = items.filter((i) => i.password && i.password.length < 10).length;
-  const noPw = items.filter((i) => typeOf(i) === 'login' && !i.password).length;
   const pwCount = new Map<string, number>();
   for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
-  const reused = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1).length;
-  const score = withPw ? Math.round(((withPw - weak) / withPw) * 100) : 100;
-  const recent = items.slice(0, 6);
+  const weakList = items.filter((i) => i.password && i.password.length < 10);
+  const reusedList = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1);
+  const weak = weakList.length;
+  const reused = reusedList.length;
+  const noPw = items.filter((i) => typeOf(i) === 'login' && !i.password).length;
+  // Each problem password counted once — same formula as the Keamanan screen.
+  const bad = new Set([...weakList, ...reusedList]).size;
+  const score = withPw ? Math.round(((withPw - bad) / withPw) * 100) : 100;
+  // Genuinely most-recently-updated, not just API order.
+  const recent = [...items]
+    .sort((a, b) => (b.updatedAt ? +new Date(b.updatedAt) : 0) - (a.updatedAt ? +new Date(a.updatedAt) : 0))
+    .slice(0, 6);
 
   const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -644,14 +654,20 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
     const loginCount = items.filter((i) => typeOf(i) === 'login').length;
     const withTotp = items.filter((i) => i.totp).length;
     const flagged = [...new Set([...weak, ...reused])];
-    // Passwords not updated in over 6 months — worth rotating.
+    // Login passwords not changed in over 6 months — worth rotating. Uses the
+    // password-change time when known, else the row's update time (older items).
     const staleBefore = Date.now() - 180 * 86400000;
-    const stale = items.filter((i) => i.password && i.updatedAt && new Date(i.updatedAt).getTime() < staleBefore);
+    const stale = items.filter((i) => {
+      if (typeOf(i) !== 'login' || !i.password) return false;
+      const when = i.passwordUpdatedAt || i.updatedAt;
+      return when ? new Date(when).getTime() < staleBefore : false;
+    });
     const dist = [0, 0, 0, 0, 0];
     for (const i of items) if (i.password) dist[strength(i.password).score]++;
     const total = items.length;
+    // Count each problem password once (a weak+reused password is one bad item).
     const score = withPw
-      ? Math.max(0, Math.min(100, Math.round(((withPw - weak.length - reused.length) / withPw) * 100)))
+      ? Math.max(0, Math.min(100, Math.round(((withPw - flagged.length) / withPw) * 100)))
       : 100;
     return { total, weak, reused, noPw, withPw, loginCount, withTotp, flagged, stale, dist, score };
   }, [items]);
@@ -806,7 +822,7 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
                   <span className="ttl">{it.title || '(tanpa judul)'}</span>
                 </div>
                 <div className="usr" style={{ color: 'var(--muted)' }}>
-                  Terakhir diubah {timeAgo(it.updatedAt)} — pertimbangkan ganti
+                  Password terakhir diubah {timeAgo(it.passwordUpdatedAt || it.updatedAt)} — pertimbangkan ganti
                 </div>
               </div>
               <div className="acts">
@@ -849,7 +865,7 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
   }, [mode, opts, pOpts]);
   useEffect(() => { gen(); }, [gen]);
 
-  const bits = mode === 'phrase' ? passphraseEntropy(pOpts) : entropyBits(pw);
+  const bits = mode === 'phrase' ? passphraseEntropy(pOpts) : passwordEntropy(opts);
   const st = strengthFromBits(bits);
   const crack = crackTimeLabel(bits);
 
@@ -1734,7 +1750,11 @@ function ItemModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const ok = await onSave(f, id);
+    // Stamp the password-change time only when the password actually changed, so
+    // the "password lama" reminder tracks rotation — not favorites or title edits.
+    const pwChanged = !!f.password && f.password !== initial.password;
+    const toSave = pwChanged ? { ...f, passwordUpdatedAt: new Date().toISOString() } : f;
+    const ok = await onSave(toSave, id);
     // On success the modal unmounts; on failure keep it open + re-enable Simpan.
     if (!ok) setBusy(false);
   }
