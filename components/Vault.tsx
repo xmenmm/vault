@@ -10,6 +10,8 @@ import { totpCode, totpRemaining } from '@/lib/totp';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
 import { biometricAvailable, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/webauthn';
+import { useAppT, type AppDict } from '@/lib/app-i18n';
+import { useLang } from '@/lib/i18n';
 
 type CustomField = { label: string; value: string };
 type ItemType = 'login' | 'card' | 'note' | 'identity';
@@ -50,6 +52,8 @@ const ITEM_TYPES: { key: ItemType; label: string; icon: string }[] = [
 ];
 const typeOf = (it: { type?: ItemType }): ItemType => it.type ?? 'login';
 const typeMeta = (t: ItemType) => ITEM_TYPES.find((x) => x.key === t) ?? ITEM_TYPES[0];
+const typeLabel = (t: ItemType, dict: AppDict): string =>
+  t === 'card' ? dict.typeCard : t === 'note' ? dict.typeNote : t === 'identity' ? dict.typeIdentity : dict.typeLogin;
 
 const EMPTY: Fields = {
   type: 'login', title: '', username: '', password: '', url: '', notes: '', category: '', favorite: false, totp: '', customFields: [],
@@ -57,19 +61,20 @@ const EMPTY: Fields = {
   fullName: '', idNumber: '', phone: '', email: '', address: '',
 };
 
-const TITLES: Record<View, string> = {
-  overview: '🏠 Ringkasan',
-  vault: '🔑 Brankas',
-  search: '🔍 Cari',
-  favorites: '⭐ Favorit',
-  security: '🛡️ Keamanan',
-  generator: '🎲 Generator Password',
-  backup: '📦 Backup',
-  settings: '⚙️ Pengaturan',
-  faq: '❓ Pertanyaan Umum (FAQ)',
-};
+const titlesFor = (t: AppDict): Record<View, string> => ({
+  overview: t.titleOverview,
+  vault: t.titleVault,
+  search: t.titleSearch,
+  favorites: t.titleFavorites,
+  security: t.titleSecurity,
+  generator: t.titleGenerator,
+  backup: t.titleBackup,
+  settings: t.titleSettings,
+  faq: t.titleFaq,
+});
 
 export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void }) {
+  const t = useAppT();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [firstLoad, setFirstLoad] = useState(true);
@@ -116,7 +121,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     setLoading(true);
     const res = await fetch('/api/vault');
     if (!res.ok) {
-      flash('Gagal memuat');
+      flash(t.loadFailed);
       setLoading(false);
       setFirstLoad(false);
       return;
@@ -136,7 +141,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     setItems(out);
     setLoading(false);
     setFirstLoad(false);
-  }, [keys.encKey, flash]);
+  }, [keys.encKey, flash, t]);
 
   useEffect(() => {
     load();
@@ -171,15 +176,15 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         body: JSON.stringify(id ? { id, data } : { data }),
       });
       if (!res.ok) {
-        flash('Gagal menyimpan — coba lagi');
+        flash(t.saveFailedRetry);
         return false;
       }
       setEditing(null);
-      flash('Tersimpan');
+      flash(t.saved);
       load();
       return true;
     } catch {
-      flash('Gagal menyimpan — cek koneksi');
+      flash(t.saveFailedConn);
       return false;
     }
   }
@@ -196,18 +201,18 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   }
 
   async function remove(id: string) {
-    if (!window.confirm('Hapus entri ini?')) return;
+    if (!window.confirm(t.confirmDeleteOne)) return;
     await fetch('/api/vault', {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    flash('Terhapus');
+    flash(t.deleted);
     load();
   }
 
   async function deleteAll() {
-    if (!window.confirm('Hapus SEMUA item di brankas? Nggak bisa dibatalkan.')) return;
+    if (!window.confirm(t.confirmDeleteAll)) return;
     for (const it of items) {
       await fetch('/api/vault', {
         method: 'DELETE',
@@ -215,14 +220,14 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         body: JSON.stringify({ id: it.id }),
       });
     }
-    flash('Semua item dihapus');
+    flash(t.allDeleted);
     load();
   }
 
   async function copy(text: string, label: string) {
     try {
       await navigator.clipboard.writeText(text);
-      flash(`${label} disalin`);
+      flash(`${label} ${t.copySuffix}`);
       // Auto-clear after N seconds (configurable in Settings; 0 = off) — but
       // only if the clipboard STILL holds what we copied, so we don't wipe
       // something the user copied in the meantime.
@@ -239,7 +244,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         }, secs * 1000);
       }
     } catch {
-      flash('Gagal menyalin');
+      flash(t.copyFailed);
     }
   }
 
@@ -247,11 +252,11 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   // mid-login so the password step can surface when the user comes back.
   function startLogin(it: Item) {
     if (!it.url) {
-      flash('Item ini nggak punya website');
+      flash(t.noWebsite);
       return;
     }
     const href = /^https?:\/\//.test(it.url) ? it.url : `https://${it.url}`;
-    if (it.username) copy(it.username, 'Username');
+    if (it.username) copy(it.username, t.lblUsername);
     window.open(href, '_blank', 'noopener,noreferrer');
     setLoginFlow({ item: it, step: 'opened' });
   }
@@ -259,7 +264,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   // Step 2: copy the password, then auto-dismiss the bar shortly after.
   function copyLoginPw() {
     if (!loginFlow) return;
-    copy(loginFlow.item.password, 'Password');
+    copy(loginFlow.item.password, t.lblPassword);
     setLoginFlow((f) => (f ? { ...f, step: 'done' } : f));
     window.setTimeout(() => setLoginFlow((f) => (f && f.step === 'done' ? null : f)), 4500);
   }
@@ -308,8 +313,8 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
       const sc = (i: Item) => (i.password ? strength(i.password).score : 99);
       out.sort((a, b) => sc(a) - sc(b) || (a.title || '').localeCompare(b.title || ''));
     } else {
-      const t = (i: Item) => (i.updatedAt ? new Date(i.updatedAt).getTime() : 0);
-      out.sort((a, b) => t(b) - t(a));
+      const ts = (i: Item) => (i.updatedAt ? new Date(i.updatedAt).getTime() : 0);
+      out.sort((a, b) => ts(b) - ts(a));
     }
     return out;
   }, [items, query, cat, view, sortBy]);
@@ -333,7 +338,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
   async function bulkDelete() {
     if (!selected.size) return;
-    if (!window.confirm(`Hapus ${selected.size} item terpilih? Nggak bisa dibatalkan.`)) return;
+    if (!window.confirm(`${t.confirmBulkDeletePrefix} ${selected.size} ${t.confirmBulkDeleteSuffix}`)) return;
     for (const id of selected) {
       await fetch('/api/vault', {
         method: 'DELETE',
@@ -341,18 +346,18 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         body: JSON.stringify({ id }),
       });
     }
-    flash(`${selected.size} item dihapus`);
+    flash(`${selected.size} ${t.bulkDeletedSuffix}`);
     exitSelect();
     load();
   }
   async function bulkFav() {
     const toFav = items.filter((i) => selected.has(i.id) && !i.favorite);
     if (!toFav.length) {
-      flash('Semua terpilih sudah favorit');
+      flash(t.allSelectedAlreadyFav);
       return;
     }
     for (const it of toFav) await toggleFav(it);
-    flash(`${toFav.length} ditandai favorit`);
+    flash(`${toFav.length} ${t.bulkFavedSuffix}`);
     exitSelect();
   }
 
@@ -362,15 +367,15 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   };
 
   const NAV: { v: View; label: string; count?: number }[] = [
-    { v: 'overview', label: '🏠 Ringkasan' },
-    { v: 'vault', label: '🔑 Brankas', count: items.length },
-    { v: 'search', label: '🔍 Cari' },
-    { v: 'favorites', label: '⭐ Favorit', count: favCount },
-    { v: 'security', label: '🛡️ Keamanan' },
-    { v: 'generator', label: '🎲 Generator' },
-    { v: 'backup', label: '📦 Backup' },
-    { v: 'settings', label: '⚙️ Pengaturan' },
-    { v: 'faq', label: '❓ FAQ' },
+    { v: 'overview', label: t.navOverview },
+    { v: 'vault', label: t.navVault, count: items.length },
+    { v: 'search', label: t.navSearch },
+    { v: 'favorites', label: t.navFavorites, count: favCount },
+    { v: 'security', label: t.navSecurity },
+    { v: 'generator', label: t.navGenerator },
+    { v: 'backup', label: t.navBackup },
+    { v: 'settings', label: t.navSettings },
+    { v: 'faq', label: t.navFaq },
   ];
 
   const isList = view === 'vault' || view === 'favorites';
@@ -379,7 +384,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   if (firstLoad) {
     return (
       <div className="orbit-screen">
-        <OrbitalLoader label="Membuka brankas…" />
+        <OrbitalLoader label={t.openingVault} />
       </div>
     );
   }
@@ -398,10 +403,10 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
             setEditing('new');
           }}
         >
-          + Tambah item
+          {t.addItem}
         </button>
 
-        <p className="side-label">Menu</p>
+        <p className="side-label">{t.menu}</p>
         <nav className="side-nav">
           {NAV.map((n) => (
             <button key={n.v} className={`snav ${view === n.v ? 'active' : ''}`} onClick={() => goView(n.v)}>
@@ -413,9 +418,9 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
         <div className="side-foot">
           <button className="btn ghost" style={{ width: '100%' }} onClick={onLock}>
-            🔒 Kunci brankas
+            {t.lockVault}
           </button>
-          <p className="side-note">Terkunci otomatis setelah 30 menit idle</p>
+          <p className="side-note">{t.autoLockNote}</p>
         </div>
       </aside>
 
@@ -424,38 +429,38 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
           {isList ? (
             <>
               <div className="search">
-                <input placeholder="Cari…" value={query} onChange={(e) => setQuery(e.target.value)} />
+                <input placeholder={t.searchShort} value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
               <div className="sp" />
               <select
                 className="sort-sel"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'recent' | 'title' | 'weak')}
-                title="Urutkan"
+                title={t.sortTitle}
               >
-                <option value="recent">Terbaru diubah</option>
-                <option value="title">Judul A–Z</option>
-                <option value="weak">Terlemah dulu</option>
+                <option value="recent">{t.sortRecent}</option>
+                <option value="title">{t.sortAZ}</option>
+                <option value="weak">{t.sortWeak}</option>
               </select>
               <button
                 className={`btn sm ${selectMode ? '' : 'ghost'}`}
                 onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-                title="Pilih beberapa item"
+                title={t.selectMany}
               >
-                {selectMode ? 'Selesai' : '☑ Pilih'}
+                {selectMode ? t.done : t.selectToggle}
               </button>
               <button className="btn sm" onClick={() => setEditing('new')}>
-                + Tambah
+                {t.addShort}
               </button>
             </>
           ) : (
             <>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{TITLES[view]}</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{titlesFor(t)[view]}</div>
               <div className="sp" />
             </>
           )}
           <button className="btn ghost sm only-mobile" onClick={onLock}>
-            Kunci
+            {t.lock}
           </button>
         </div>
 
@@ -470,7 +475,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
             {view === 'vault' && categories.length > 0 && (
               <div className="chips">
                 <button className={`chip ${cat === null ? 'active' : ''}`} onClick={() => setCat(null)}>
-                  Semua ({items.length})
+                  {t.allCount} ({items.length})
                 </button>
                 {categories.map((c) => (
                   <button
@@ -484,14 +489,14 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
               </div>
             )}
             {loading ? (
-              <div className="empty">Mendekripsi…</div>
+              <div className="empty">{t.decrypting}</div>
             ) : shown.length === 0 ? (
               <div className="empty">
                 {view === 'favorites'
-                  ? 'Belum ada favorit. Klik ⭐ di entri buat menandai.'
+                  ? t.emptyFavorites
                   : items.length === 0
-                  ? 'Brankas kosong. Klik + Tambah untuk menyimpan login.'
-                  : 'Nggak ada hasil.'}
+                  ? t.emptyVault
+                  : t.noResults}
               </div>
             ) : (
               shown.map((it) => (
@@ -539,12 +544,12 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
       {selectMode && isList && (
         <div className="selbar">
-          <span className="selbar-count">{selected.size} dipilih</span>
+          <span className="selbar-count">{selected.size} {t.selectedSuffix}</span>
           <div className="selbar-acts">
-            <button className="btn sm ghost" onClick={selectAllShown}>Pilih semua ({shown.length})</button>
-            <button className="btn sm sec" disabled={!selected.size} onClick={bulkFav}>⭐ Favorit</button>
-            <button className="btn sm danger" disabled={!selected.size} onClick={bulkDelete}>🗑 Hapus</button>
-            <button className="iconbtn" title="Selesai" onClick={exitSelect}>✕</button>
+            <button className="btn sm ghost" onClick={selectAllShown}>{t.selectAll} ({shown.length})</button>
+            <button className="btn sm sec" disabled={!selected.size} onClick={bulkFav}>{t.bulkFav}</button>
+            <button className="btn sm danger" disabled={!selected.size} onClick={bulkDelete}>{t.bulkDelete}</button>
+            <button className="iconbtn" title={t.done} onClick={exitSelect}>✕</button>
           </div>
         </div>
       )}
@@ -563,11 +568,11 @@ type RowProps = {
 };
 
 /* ───────────────────────── Ringkasan ───────────────────────── */
-function greetingFor(h: number): string {
-  if (h < 11) return 'Selamat pagi';
-  if (h < 15) return 'Selamat siang';
-  if (h < 19) return 'Selamat sore';
-  return 'Selamat malam';
+function greetingFor(h: number, t: AppDict): string {
+  if (h < 11) return t.greetingMorning;
+  if (h < 15) return t.greetingNoon;
+  if (h < 19) return t.greetingAfternoon;
+  return t.greetingEvening;
 }
 
 function OverviewView({
@@ -576,6 +581,7 @@ function OverviewView({
   onAdd,
   ...row
 }: { items: Item[]; onNav: (v: View) => void; onAdd: () => void } & RowProps) {
+  const t = useAppT();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 1000);
@@ -602,38 +608,38 @@ function OverviewView({
     .sort((a, b) => (b.updatedAt ? +new Date(b.updatedAt) : 0) - (a.updatedAt ? +new Date(a.updatedAt) : 0))
     .slice(0, 6);
 
-  const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = now.toLocaleDateString(t.localeTag, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString(t.localeTag, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   const attention: { label: string; n: number; hint: string; tone: string }[] = [
-    { label: 'Password lemah', n: weak, hint: 'terlalu pendek', tone: weak ? 'warn' : 'ok' },
-    { label: 'Dipakai ulang', n: reused, hint: 'di >1 akun', tone: reused ? 'warn' : 'ok' },
-    { label: 'Tanpa 2FA', n: Math.max(0, loginCount - withTotp), hint: 'belum ada TOTP', tone: 'muted' },
-    { label: 'Tanpa password', n: noPw, hint: 'login kosong', tone: noPw ? 'warn' : 'ok' },
+    { label: t.attnWeak, n: weak, hint: t.attnWeakHint, tone: weak ? 'warn' : 'ok' },
+    { label: t.attnReused, n: reused, hint: t.attnReusedHint, tone: reused ? 'warn' : 'ok' },
+    { label: t.attnNo2fa, n: Math.max(0, loginCount - withTotp), hint: t.attnNo2faHint, tone: 'muted' },
+    { label: t.attnNoPw, n: noPw, hint: t.attnNoPwHint, tone: noPw ? 'warn' : 'ok' },
   ];
 
   return (
     <div className="wrap">
       <div className="panel-card dash-header">
         <div>
-          <div className="dash-status"><span className="dot" /> Semua terenkripsi · brankas aman</div>
-          <h2 className="dash-greet">{greetingFor(now.getHours())}, admin 👋</h2>
+          <div className="dash-status"><span className="dot" /> {t.dashStatus}</div>
+          <h2 className="dash-greet">{greetingFor(now.getHours(), t)}, admin 👋</h2>
           <p className="dash-sub">{dateStr}</p>
         </div>
         <div className="dash-clock">{timeStr}</div>
       </div>
 
       <div className="stats">
-        <Stat n={items.length} label="Total item" />
-        <Stat n={cats} label="Kategori" />
-        <Stat n={fav} label="Favorit" />
-        <Stat n={withTotp} label="Dengan 2FA" />
-        <Stat n={`${score}%`} label="Skor keamanan" tone={score >= 80 ? 'ok' : 'warn'} />
+        <Stat n={items.length} label={t.statTotal} />
+        <Stat n={cats} label={t.statCategories} />
+        <Stat n={fav} label={t.statFavorites} />
+        <Stat n={withTotp} label={t.statWith2fa} />
+        <Stat n={`${score}%`} label={t.statSecurityScore} tone={score >= 80 ? 'ok' : 'warn'} />
       </div>
 
       <div className="dash-grid">
         <div>
-          <p className="sec-hint">Pusat aksi · butuh perhatian</p>
+          <p className="sec-hint">{t.actionCenter}</p>
           <div className="action-grid">
             {attention.map((a) => (
               <button key={a.label} className="action-card" onClick={() => onNav('security')}>
@@ -643,19 +649,19 @@ function OverviewView({
               </button>
             ))}
           </div>
-          <p className="sec-hint" style={{ marginTop: 22 }}>Aksi cepat</p>
+          <p className="sec-hint" style={{ marginTop: 22 }}>{t.quickActions}</p>
           <div className="quick">
-            <button className="qbtn" onClick={onAdd}>➕<span>Tambah item</span></button>
-            <button className="qbtn" onClick={() => onNav('generator')}>🎲<span>Generator</span></button>
-            <button className="qbtn" onClick={() => onNav('backup')}>📦<span>Backup</span></button>
+            <button className="qbtn" onClick={onAdd}>➕<span>{t.quickAdd}</span></button>
+            <button className="qbtn" onClick={() => onNav('generator')}>🎲<span>{t.quickGenerator}</span></button>
+            <button className="qbtn" onClick={() => onNav('backup')}>📦<span>{t.quickBackup}</span></button>
           </div>
         </div>
         <div>
-          <p className="sec-hint">Aktivitas terbaru</p>
+          <p className="sec-hint">{t.recentActivity}</p>
           {recent.length ? (
             recent.map((it) => <ItemRow key={it.id} item={it} {...row} />)
           ) : (
-            <div className="empty">Belum ada item. Klik ➕ Tambah item buat mulai.</div>
+            <div className="empty">{t.emptyRecent}</div>
           )}
         </div>
       </div>
@@ -670,6 +676,7 @@ function SearchView({
   setQuery,
   ...row
 }: { items: Item[]; query: string; setQuery: (q: string) => void } & RowProps) {
+  const t = useAppT();
   const q = query.trim().toLowerCase();
   // Relevance: title starts-with first, then title contains, then username, then
   // other fields — so near-identical names sort together and the best match leads.
@@ -693,17 +700,17 @@ function SearchView({
       <input
         className="search-big"
         autoFocus
-        placeholder="Cari judul, username, website, kategori, atau catatan…"
+        placeholder={t.searchPlaceholder}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
       {!q ? (
-        <div className="empty">Ketik buat nyari di {items.length} entri kamu.</div>
+        <div className="empty">{t.searchHintPrefix} {items.length} {t.searchHintSuffix}</div>
       ) : results.length === 0 ? (
-        <div className="empty">Nggak ada hasil buat &ldquo;{query}&rdquo;.</div>
+        <div className="empty">{t.searchNoResultPrefix} &ldquo;{query}&rdquo;.</div>
       ) : (
         <>
-          <p className="sec-hint">{results.length} hasil</p>
+          <p className="sec-hint">{results.length} {t.resultsSuffix}</p>
           {results.map((it) => (
             <ItemRow key={it.id} item={it} highlight={query.trim()} {...row} />
           ))}
@@ -715,9 +722,12 @@ function SearchView({
 
 /* ───────────────────────── Keamanan ───────────────────────── */
 const STRENGTH_COLORS = ['#e0503c', '#e0834c', '#e0a13c', '#7bbf4c', '#2bb079'];
-const STRENGTH_LABELS = ['Sangat lemah', 'Lemah', 'Sedang', 'Kuat', 'Sangat kuat'];
+const strengthLabels = (t: AppDict): string[] => [
+  t.strengthVeryWeak, t.strengthWeak, t.strengthMedium, t.strengthStrong, t.strengthVeryStrong,
+];
 
 function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => void }) {
+  const t = useAppT();
   const m = useMemo(() => {
     const pwCount = new Map<string, number>();
     for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
@@ -749,7 +759,7 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
 
   const { total, weak, reused, noPw, flagged } = m;
   const scoreColor = m.score >= 80 ? 'var(--ok)' : m.score >= 50 ? '#e0a13c' : 'var(--danger)';
-  const scoreLabel = m.score >= 80 ? 'Sehat' : m.score >= 50 ? 'Perlu perhatian' : 'Berisiko';
+  const scoreLabel = m.score >= 80 ? t.scoreHealthy : m.score >= 50 ? t.scoreNeedsAttn : t.scoreRisky;
   const totpPct = m.loginCount ? Math.round((m.withTotp / m.loginCount) * 100) : 0;
   const distMax = Math.max(1, ...m.dist);
 
@@ -797,19 +807,19 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
           </div>
           <div className="gauge-side">
             <div className="gauge-label" style={{ color: scoreColor }}>{scoreLabel}</div>
-            <p className="gauge-desc">Skor kesehatan brankas dari kekuatan password, pemakaian ulang, dan cakupan 2FA.</p>
+            <p className="gauge-desc">{t.gaugeDesc}</p>
             <div className="sec-mini">
-              <div><b>{m.withTotp}</b><span>pakai 2FA</span></div>
-              <div><b>{Math.max(0, m.withPw - weak.length)}</b><span>password aman</span></div>
-              <div><b>{totpPct}%</b><span>cakupan 2FA</span></div>
+              <div><b>{m.withTotp}</b><span>{t.miniUse2fa}</span></div>
+              <div><b>{Math.max(0, m.withPw - weak.length)}</b><span>{t.miniSafePw}</span></div>
+              <div><b>{totpPct}%</b><span>{t.mini2faCoverage}</span></div>
             </div>
           </div>
         </div>
 
         <div className="panel-card sec-dist-card">
-          <h3 className="pc-title">Sebaran kekuatan</h3>
+          <h3 className="pc-title">{t.distTitle}</h3>
           <div className="dist">
-            {STRENGTH_LABELS.map((lbl, i) => (
+            {strengthLabels(t).map((lbl, i) => (
               <div className="dist-row" key={i}>
                 <span className="dist-l">{lbl}</span>
                 <div className="dist-bar"><span style={{ width: `${(m.dist[i] / distMax) * 100}%`, background: STRENGTH_COLORS[i] }} /></div>
@@ -823,28 +833,28 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
       <div className="panel-card breach-card">
         <div className="breach-head">
           <div>
-            <h3 className="pc-title">🔎 Cek kebocoran</h3>
-            <p className="pc-desc">Bandingkan password kamu dengan miliaran yang pernah bocor (HaveIBeenPwned). Aman — cuma 5 huruf hash yang dikirim, password aslinya nggak pernah keluar dari perangkat.</p>
+            <h3 className="pc-title">{t.breachTitle}</h3>
+            <p className="pc-desc">{t.breachDesc}</p>
           </div>
           <button className="btn" disabled={scan.state === 'running'} onClick={runScan}>
-            {scan.state === 'running' ? `Memeriksa… ${scan.done}/${scan.total}` : scan.state === 'done' ? 'Periksa ulang' : 'Periksa sekarang'}
+            {scan.state === 'running' ? `${t.breachCheckingPrefix} ${scan.done}/${scan.total}` : scan.state === 'done' ? t.breachRecheck : t.breachCheckNow}
           </button>
         </div>
         {scan.state === 'done' &&
           (scan.breached.length === 0 ? (
-            <div className="breach-ok">✓ Aman — nggak ada password kamu yang ketemu di daftar kebocoran.</div>
+            <div className="breach-ok">{t.breachOk}</div>
           ) : (
             <>
-              <div className="breach-warn">⚠️ {scan.breached.length} password ketemu di kebocoran — sebaiknya segera ganti.</div>
+              <div className="breach-warn">{t.breachWarnPrefix} {scan.breached.length} {t.breachWarnSuffix}</div>
               {scan.breached.map(({ item, count }) => (
                 <div className="item" key={item.id}>
                   <div className="ic">{(item.title || item.username || '?').charAt(0).toUpperCase()}</div>
                   <div className="info">
-                    <div className="title-row"><span className="ttl">{item.title || '(tanpa judul)'}</span></div>
-                    <div className="usr" style={{ color: 'var(--danger)' }}>Ketemu {count.toLocaleString('id-ID')}× di kebocoran</div>
+                    <div className="title-row"><span className="ttl">{item.title || t.noTitle}</span></div>
+                    <div className="usr" style={{ color: 'var(--danger)' }}>{t.breachFoundPrefix} {count.toLocaleString(t.localeTag)}{t.breachFoundSuffix}</div>
                   </div>
                   <div className="acts">
-                    <button className="iconbtn" title="Perbaiki" onClick={() => onEdit(item)}><EditIcon /></button>
+                    <button className="iconbtn" title={t.fix} onClick={() => onEdit(item)}><EditIcon /></button>
                   </div>
                 </div>
               ))}
@@ -853,29 +863,29 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
       </div>
 
       <div className="stats">
-        <Stat n={total} label="Total item" />
-        <Stat n={weak.length} label="Password lemah" tone={weak.length ? 'warn' : 'ok'} />
-        <Stat n={reused.length} label="Dipakai ulang" tone={reused.length ? 'warn' : 'ok'} />
-        <Stat n={noPw.length} label="Tanpa password" tone={noPw.length ? 'warn' : 'ok'} />
+        <Stat n={total} label={t.statTotal} />
+        <Stat n={weak.length} label={t.statWeak} tone={weak.length ? 'warn' : 'ok'} />
+        <Stat n={reused.length} label={t.statReused} tone={reused.length ? 'warn' : 'ok'} />
+        <Stat n={noPw.length} label={t.statNoPw} tone={noPw.length ? 'warn' : 'ok'} />
       </div>
       {flagged.length > 0 ? (
         <>
-          <p className="sec-hint">Item yang sebaiknya diperbaiki:</p>
+          <p className="sec-hint">{t.fixListTitle}</p>
           {flagged.map((it) => (
             <div className="item" key={it.id}>
               <div className="ic">{(it.title || it.username || '?').charAt(0).toUpperCase()}</div>
               <div className="info">
                 <div className="title-row">
-                  <span className="ttl">{it.title || '(tanpa judul)'}</span>
+                  <span className="ttl">{it.title || t.noTitle}</span>
                 </div>
                 <div className="usr" style={{ color: '#e0a13c' }}>
-                  {weak.includes(it) ? 'Password lemah (terlalu pendek)' : ''}
+                  {weak.includes(it) ? t.weakLabel : ''}
                   {weak.includes(it) && reused.includes(it) ? ' · ' : ''}
-                  {reused.includes(it) ? 'Dipakai ulang di entri lain' : ''}
+                  {reused.includes(it) ? t.reusedLabel : ''}
                 </div>
               </div>
               <div className="acts">
-                <button className="iconbtn" title="Perbaiki" onClick={() => onEdit(it)}>
+                <button className="iconbtn" title={t.fix} onClick={() => onEdit(it)}>
                   <EditIcon />
                 </button>
               </div>
@@ -883,25 +893,25 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
           ))}
         </>
       ) : (
-        <div className="empty">👍 Aman — nggak ada password yang lemah atau dipakai ulang.</div>
+        <div className="empty">{t.allSafe}</div>
       )}
 
       {m.stale.length > 0 && (
         <>
-          <p className="sec-hint" style={{ marginTop: 18 }}>⏳ Password lama (belum diganti &gt; 6 bulan):</p>
+          <p className="sec-hint" style={{ marginTop: 18 }}>{t.staleTitle}</p>
           {m.stale.map((it) => (
             <div className="item" key={it.id}>
               <div className="ic">{(it.title || it.username || '?').charAt(0).toUpperCase()}</div>
               <div className="info">
                 <div className="title-row">
-                  <span className="ttl">{it.title || '(tanpa judul)'}</span>
+                  <span className="ttl">{it.title || t.noTitle}</span>
                 </div>
                 <div className="usr" style={{ color: 'var(--muted)' }}>
-                  Password terakhir diubah {timeAgo(it.passwordUpdatedAt || it.updatedAt)} — pertimbangkan ganti
+                  {t.stalePrefix} {timeAgo(it.passwordUpdatedAt || it.updatedAt, t)} {t.staleSuffix}
                 </div>
               </div>
               <div className="acts">
-                <button className="iconbtn" title="Ganti password" onClick={() => onEdit(it)}>
+                <button className="iconbtn" title={t.changePassword} onClick={() => onEdit(it)}>
                   <EditIcon />
                 </button>
               </div>
@@ -922,14 +932,8 @@ function Stat({ n, label, tone }: { n: number | string; label: string; tone?: 'w
 }
 
 /* ───────────────────────── Generator ───────────────────────── */
-const GEN_TIPS = [
-  'Pakai password unik di tiap akun — biar bocor satu, yang lain tetap aman.',
-  'Lebih panjang lebih kuat: tiap karakter tambahan melipatgandakan kemungkinan.',
-  'Frasa gampang diingat — makin banyak kata, makin susah ditebak.',
-  'Aktifkan 2FA di akun penting — password saja nggak cukup.',
-];
-
 function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
+  const t = useAppT();
   const [mode, setMode] = useState<'random' | 'phrase'>('random');
   const [pw, setPw] = useState('');
   const [opts, setOpts] = useState<GenOpts>({ length: 18, lower: true, upper: true, digit: true, symbol: true });
@@ -953,13 +957,13 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
     <div className="wrap">
       <div className="panel-card gen-card">
         <div className="seg" style={{ marginBottom: 16 }}>
-          <button className={`seg-btn ${mode === 'random' ? 'on' : ''}`} onClick={() => setMode('random')}>🎲 Acak</button>
-          <button className={`seg-btn ${mode === 'phrase' ? 'on' : ''}`} onClick={() => setMode('phrase')}>📝 Frasa</button>
+          <button className={`seg-btn ${mode === 'random' ? 'on' : ''}`} onClick={() => setMode('random')}>{t.genRandom}</button>
+          <button className={`seg-btn ${mode === 'phrase' ? 'on' : ''}`} onClick={() => setMode('phrase')}>{t.genPhrase}</button>
         </div>
 
         <div className="gen-out">
           <span className="gen-pw">{pw || '—'}</span>
-          <button type="button" className="iconbtn" title="Buat ulang" onClick={gen}><RefreshIcon /></button>
+          <button type="button" className="iconbtn" title={t.genRegen} onClick={gen}><RefreshIcon /></button>
         </div>
 
         {pw && (
@@ -969,22 +973,22 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
               <span className="strength-label" style={{ color: st.color }}>{st.label}</span>
             </div>
             <div className="gen-meta">
-              <span>🛡️ Perlu <b style={{ color: st.color }}>{crack}</b> buat dijebol</span>
-              <span className="gen-bits">{bits} bit</span>
+              <span>{t.genCrackPrefix} <b style={{ color: st.color }}>{crack}</b> {t.genCrackSuffix}</span>
+              <span className="gen-bits">{bits} {t.genBit}</span>
             </div>
           </>
         )}
 
         <div className="row2" style={{ marginTop: 14 }}>
-          <button type="button" className="btn" style={{ flex: 1 }} onClick={() => pw && onCopy(pw, 'Password')}>📋 Salin</button>
-          <button type="button" className="btn sec" onClick={gen}>Buat baru</button>
+          <button type="button" className="btn" style={{ flex: 1 }} onClick={() => pw && onCopy(pw, t.lblPassword)}>{t.genCopy}</button>
+          <button type="button" className="btn sec" onClick={gen}>{t.genNew}</button>
         </div>
 
         <div className="gen-controls">
           {mode === 'random' ? (
             <>
               <label className="gen-slider">
-                <span>Panjang <b>{opts.length}</b></span>
+                <span>{t.genLength} <b>{opts.length}</b></span>
                 <input type="range" min={8} max={48} value={opts.length}
                   onChange={(e) => setOpts((o) => ({ ...o, length: +e.target.value }))} />
               </label>
@@ -992,7 +996,7 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
                 {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
                   <label key={k}>
                     <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
-                    {GEN_LABELS[k]}
+                    {genLabel(k, t)}
                   </label>
                 ))}
               </div>
@@ -1000,19 +1004,19 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
           ) : (
             <>
               <label className="gen-slider">
-                <span>Jumlah kata <b>{pOpts.words}</b></span>
+                <span>{t.genWords} <b>{pOpts.words}</b></span>
                 <input type="range" min={3} max={8} value={pOpts.words}
                   onChange={(e) => setPOpts((o) => ({ ...o, words: +e.target.value }))} />
               </label>
               <div className="opts" style={{ marginTop: 6 }}>
-                <label><input type="checkbox" checked={pOpts.capitalize} onChange={(e) => setPOpts((o) => ({ ...o, capitalize: e.target.checked }))} />Kapital</label>
-                <label><input type="checkbox" checked={pOpts.number} onChange={(e) => setPOpts((o) => ({ ...o, number: e.target.checked }))} />Angka</label>
-                <label style={{ gap: 6 }}>Pemisah
+                <label><input type="checkbox" checked={pOpts.capitalize} onChange={(e) => setPOpts((o) => ({ ...o, capitalize: e.target.checked }))} />{t.genCapital}</label>
+                <label><input type="checkbox" checked={pOpts.number} onChange={(e) => setPOpts((o) => ({ ...o, number: e.target.checked }))} />{t.genDigit}</label>
+                <label style={{ gap: 6 }}>{t.genSeparator}
                   <select value={pOpts.separator} onChange={(e) => setPOpts((o) => ({ ...o, separator: e.target.value }))} style={sel}>
-                    <option value="-">- (strip)</option>
-                    <option value=".">. (titik)</option>
-                    <option value="_">_ (garis)</option>
-                    <option value=" ">spasi</option>
+                    <option value="-">{t.genSepDash}</option>
+                    <option value=".">{t.genSepDot}</option>
+                    <option value="_">{t.genSepUnderscore}</option>
+                    <option value=" ">{t.genSepSpace}</option>
                   </select>
                 </label>
               </div>
@@ -1022,10 +1026,10 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
       </div>
 
       <div className="panel-card gen-tips">
-        <h3 className="pc-title">💡 Tips password kuat</h3>
+        <h3 className="pc-title">{t.genTipsTitle}</h3>
         <ul className="tip-list">
-          {GEN_TIPS.map((t, i) => (
-            <li key={i}><span className="tip-dot" />{t}</li>
+          {t.genTips.map((tip, i) => (
+            <li key={i}><span className="tip-dot" />{tip}</li>
           ))}
         </ul>
       </div>
@@ -1043,6 +1047,7 @@ function BackupView({
   reload: () => void;
   encKey: CryptoKey;
 }) {
+  const t = useAppT();
   const [busy, setBusy] = useState(false);
 
   async function exportBackup() {
@@ -1057,9 +1062,9 @@ function BackupView({
       a.download = 'myvault-backup.json';
       a.click();
       URL.revokeObjectURL(url);
-      flash('Backup diunduh');
+      flash(t.backupDownloaded);
     } catch {
-      flash('Gagal ekspor');
+      flash(t.exportFailed);
     }
     setBusy(false);
   }
@@ -1080,7 +1085,7 @@ function BackupView({
         try {
           await decryptStr(encKey, sample);
         } catch {
-          flash('Backup pakai master password berbeda — impor dibatalkan');
+          flash(t.importDiffMaster);
           setBusy(false);
           e.target.value = '';
           return;
@@ -1098,10 +1103,10 @@ function BackupView({
           n++;
         }
       }
-      flash(`${n} item diimpor`);
+      flash(`${n} ${t.importedSuffix}`);
       reload();
     } catch {
-      flash('File backup nggak valid');
+      flash(t.backupInvalid);
     }
     setBusy(false);
     e.target.value = '';
@@ -1124,7 +1129,7 @@ function BackupView({
         }
       }
       if (rows.length === 0) {
-        flash('Nggak ada login buat diekspor');
+        flash(t.noLoginToExport);
         setBusy(false);
         return;
       }
@@ -1135,9 +1140,9 @@ function BackupView({
       a.download = 'myvault-logins.csv';
       a.click();
       URL.revokeObjectURL(url);
-      flash(`${rows.length} login diekspor ke CSV`);
+      flash(`${rows.length} ${t.csvExportedSuffix}`);
     } catch {
-      flash('Gagal ekspor CSV');
+      flash(t.csvExportFailed);
     }
     setBusy(false);
   }
@@ -1149,7 +1154,7 @@ function BackupView({
     try {
       const logins = csvToLogins(parseCsv(await file.text()));
       if (logins.length === 0) {
-        flash('Nggak nemu login di CSV ini');
+        flash(t.noLoginInCsv);
       } else {
         let n = 0;
         for (const l of logins) {
@@ -1162,11 +1167,11 @@ function BackupView({
           });
           if (res.ok) n++;
         }
-        flash(`${n} login diimpor dari CSV`);
+        flash(`${n} ${t.csvImportedSuffix}`);
         reload();
       }
     } catch {
-      flash('CSV nggak valid');
+      flash(t.csvInvalid);
     }
     setBusy(false);
     e.target.value = '';
@@ -1175,39 +1180,38 @@ function BackupView({
   return (
     <div className="wrap">
       <div className="panel-card">
-        <h3 className="pc-title">⬇ Ekspor backup</h3>
+        <h3 className="pc-title">{t.backupExportTitle}</h3>
         <p className="pc-desc">
-          Unduh salinan <b>terenkripsi</b> semua entri kamu (isinya ciphertext — aman). Simpan buat jaga-jaga.
+          {t.backupExportDesc1a} <b>{t.backupExportDescEnc}</b> {t.backupExportDesc1b}
         </p>
         <button className="btn" disabled={busy} onClick={exportBackup}>
-          {busy ? 'Memproses…' : 'Unduh backup'}
+          {busy ? t.backupProcessing : t.backupDownload}
         </button>
       </div>
       <div className="panel-card" style={{ marginTop: 14 }}>
-        <h3 className="pc-title">⬆ Impor backup</h3>
+        <h3 className="pc-title">{t.backupImportTitle}</h3>
         <p className="pc-desc">
-          Pulihkan dari file backup. Item ditambahkan ke brankas. Wajib pakai <b>master password yang sama</b>.
+          {t.backupImportDesc1} <b>{t.backupImportDescMaster}</b>.
         </p>
         <label className="btn sec" style={{ display: 'inline-block', cursor: busy ? 'default' : 'pointer' }}>
-          Pilih file backup
+          {t.backupChooseFile}
           <input type="file" accept="application/json" style={{ display: 'none' }} onChange={importBackup} disabled={busy} />
         </label>
       </div>
       <div className="panel-card" style={{ marginTop: 14 }}>
-        <h3 className="pc-title">🌐 Impor / Ekspor CSV</h3>
+        <h3 className="pc-title">{t.csvTitle}</h3>
         <p className="pc-desc">
-          Pindah dari <b>Chrome</b>, Firefox, Bitwarden, LastPass, dll — atau ekspor login kamu buat
-          dibawa ke tempat lain. Kolom (judul, username, password, website) dikenali otomatis.
+          {t.csvDesc1} <b>{t.csvDescChrome}</b>{t.csvDesc2}
         </p>
         <div className="row2" style={{ flexWrap: 'wrap' }}>
           <label className="btn sec" style={{ display: 'inline-flex', alignItems: 'center', cursor: busy ? 'default' : 'pointer' }}>
-            ⬆ Impor CSV
+            {t.csvImport}
             <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={importCsv} disabled={busy} />
           </label>
-          <button type="button" className="btn sec" disabled={busy} onClick={exportCsv}>⬇ Ekspor login ke CSV</button>
+          <button type="button" className="btn sec" disabled={busy} onClick={exportCsv}>{t.csvExport}</button>
         </div>
         <p className="pc-desc" style={{ marginTop: 12, marginBottom: 0, fontSize: 12.5, color: 'var(--danger)' }}>
-          ⚠️ File CSV nggak terenkripsi — hapus dari komputer kamu setelah selesai.
+          {t.csvWarn}
         </p>
       </div>
     </div>
@@ -1215,11 +1219,9 @@ function BackupView({
 }
 
 /* ───────────────────────── Pengaturan ───────────────────────── */
-const THEME_OPTS: ['system' | 'dark' | 'light', string][] = [
-  ['system', '🖥️ Sistem'],
-  ['dark', '🌙 Gelap'],
-  ['light', '☀️ Terang'],
-];
+const THEME_KEYS: ('system' | 'dark' | 'light')[] = ['system', 'dark', 'light'];
+const themeLabel = (k: 'system' | 'dark' | 'light', t: AppDict): string =>
+  k === 'dark' ? t.themeDark : k === 'light' ? t.themeLight : t.themeSystem;
 
 function SettingsView({
   items,
@@ -1238,6 +1240,8 @@ function SettingsView({
   onSetTheme: (m: 'system' | 'dark' | 'light') => void;
   flash: (m: string) => void;
 }) {
+  const t = useAppT();
+  const [lang, setLang] = useLang();
   const [autolock, setAutolock] = useState('30');
   const [persist, setPersist] = useState(true);
   const [clipclear, setClipclear] = useState('30');
@@ -1272,14 +1276,14 @@ function SettingsView({
   async function install() {
     const p = getInstallPrompt();
     if (!p) {
-      flash('Pakai menu browser → "Tambah ke layar utama"');
+      flash(t.installUseBrowserMenu);
       return;
     }
     await p.prompt();
     const { outcome } = await p.userChoice;
     clearInstallPrompt();
     setCanInstall(false);
-    if (outcome === 'accepted') flash('Aplikasi dipasang');
+    if (outcome === 'accepted') flash(t.appInstalled);
   }
 
   async function toggleBio() {
@@ -1287,34 +1291,34 @@ function SettingsView({
     if (bioOn) {
       disableBiometric();
       setBioOn(false);
-      flash('Biometrik dimatikan');
+      flash(t.bioDisabled);
       return;
     }
     setBioBusy(true);
     try {
       const email = localStorage.getItem('vault-email') || '';
       if (!email) {
-        flash('Masuk ulang dulu sebelum aktifkan biometrik');
+        flash(t.bioReloginFirst);
         return;
       }
       await enableBiometric(keys, email);
       setBioOn(true);
-      flash('Biometrik aktif');
+      flash(t.bioActive);
     } catch (e: unknown) {
-      flash(e instanceof Error ? e.message : 'Gagal aktifkan biometrik');
+      flash(e instanceof Error ? e.message : t.bioEnableFailed);
     } finally {
       setBioBusy(false);
     }
   }
 
-  const saveAutolock = (v: string) => { setAutolock(v); localStorage.setItem('vault-autolock', v); flash('Tersimpan'); };
-  const saveClip = (v: string) => { setClipclear(v); localStorage.setItem('vault-clipclear', v); flash('Tersimpan'); };
+  const saveAutolock = (v: string) => { setAutolock(v); localStorage.setItem('vault-autolock', v); flash(t.saved); };
+  const saveClip = (v: string) => { setClipclear(v); localStorage.setItem('vault-clipclear', v); flash(t.saved); };
   const togglePersist = () => {
     const next = !persist;
     setPersist(next);
     localStorage.setItem('vault-persist', next ? '1' : '0');
     if (!next) localStorage.removeItem('vault-k'); // stop caching the key now
-    flash('Tersimpan');
+    flash(t.saved);
   };
 
   const sel = {
@@ -1325,108 +1329,115 @@ function SettingsView({
   return (
     <div className="wrap">
       <div className="panel-card">
-        <h3 className="pc-title">Tampilan</h3>
+        <h3 className="pc-title">{t.setAppearance}</h3>
         <div className="kv">
-          <span>Tema</span>
+          <span>{t.themeLabel}</span>
           <div className="seg">
-            {THEME_OPTS.map(([m, label]) => (
+            {THEME_KEYS.map((m) => (
               <button key={m} className={`seg-btn ${themePref === m ? 'on' : ''}`} onClick={() => onSetTheme(m)}>
-                {label}
+                {themeLabel(m, t)}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="kv">
+          <span>{t.languageLabel}</span>
+          <div className="seg">
+            <button className={`seg-btn ${lang === 'id' ? 'on' : ''}`} onClick={() => setLang('id')}>{t.langIndonesia}</button>
+            <button className={`seg-btn ${lang === 'en' ? 'on' : ''}`} onClick={() => setLang('en')}>{t.langEnglish}</button>
           </div>
         </div>
       </div>
 
       <div className="panel-card" style={{ marginTop: 14 }}>
-        <h3 className="pc-title">Aplikasi</h3>
+        <h3 className="pc-title">{t.setApp}</h3>
         <div className="kv">
           <span>
-            Install myVault
+            {t.installTitle}
             <br />
             <small style={{ color: 'var(--muted)' }}>
               {canInstall || installed
-                ? 'Buka dari layar utama, layar penuh, & bisa offline'
-                : 'Di iPhone: tombol Bagikan → "Tambah ke Layar Utama"'}
+                ? t.installHintCan
+                : t.installHintIos}
             </small>
           </span>
           {installed ? (
-            <span style={{ color: 'var(--ok)', fontWeight: 600, fontSize: 13 }}>✓ Terpasang</span>
+            <span style={{ color: 'var(--ok)', fontWeight: 600, fontSize: 13 }}>{t.installed}</span>
           ) : (
-            <button className="btn sec" onClick={install}>📲 Install</button>
+            <button className="btn sec" onClick={install}>{t.install}</button>
           )}
         </div>
       </div>
 
       <div className="panel-card" style={{ marginTop: 14 }}>
-        <h3 className="pc-title">Keamanan &amp; privasi</h3>
+        <h3 className="pc-title">{t.setSecurityPrivacy}</h3>
         {bioAvail && (
           <div className="kv">
             <span>
-              Buka pakai sidik jari / wajah
+              {t.bioTitle}
               <br />
               <small style={{ color: 'var(--muted)' }}>
-                Pakai biometrik perangkat — master password tetap selalu bisa dipakai
+                {t.bioHint}
               </small>
             </span>
             <button
               className={`switch ${bioOn ? 'on' : ''}`}
               onClick={toggleBio}
               disabled={bioBusy}
-              aria-label="Buka pakai biometrik"
+              aria-label={t.bioAria}
             >
               <span className="knob" />
             </button>
           </div>
         )}
         <div className="kv">
-          <span>Kunci otomatis saat idle</span>
+          <span>{t.autolockTitle}</span>
           <select value={autolock} onChange={(e) => saveAutolock(e.target.value)} style={sel}>
-            <option value="5">5 menit</option>
-            <option value="15">15 menit</option>
-            <option value="30">30 menit</option>
-            <option value="60">1 jam</option>
-            <option value="0">Jangan pernah</option>
+            <option value="5">{t.autolock5}</option>
+            <option value="15">{t.autolock15}</option>
+            <option value="30">{t.autolock30}</option>
+            <option value="60">{t.autolock60}</option>
+            <option value="0">{t.autolockNever}</option>
           </select>
         </div>
         <div className="kv">
-          <span>Auto-bersih clipboard</span>
+          <span>{t.clipTitle}</span>
           <select value={clipclear} onChange={(e) => saveClip(e.target.value)} style={sel}>
-            <option value="15">15 detik</option>
-            <option value="30">30 detik</option>
-            <option value="60">60 detik</option>
-            <option value="0">Mati</option>
+            <option value="15">{t.clip15}</option>
+            <option value="30">{t.clip30}</option>
+            <option value="60">{t.clip60}</option>
+            <option value="0">{t.clipOff}</option>
           </select>
         </div>
         <div className="kv">
           <span>
-            Ingat sesi 7 hari
+            {t.persistTitle}
             <br />
-            <small style={{ color: 'var(--muted)' }}>Mati = minta master password tiap buka ulang (lebih aman)</small>
+            <small style={{ color: 'var(--muted)' }}>{t.persistHint}</small>
           </span>
-          <button className={`switch ${persist ? 'on' : ''}`} onClick={togglePersist} aria-label="Ingat sesi">
+          <button className={`switch ${persist ? 'on' : ''}`} onClick={togglePersist} aria-label={t.persistAria}>
             <span className="knob" />
           </button>
         </div>
       </div>
 
       <div className="panel-card" style={{ marginTop: 14 }}>
-        <h3 className="pc-title">Info brankas</h3>
-        <div className="kv"><span>Total item</span><b>{items.length}</b></div>
-        <div className="kv"><span>Favorit</span><b>{items.filter((i) => i.favorite).length}</b></div>
-        <div className="kv"><span>Dengan 2FA</span><b>{items.filter((i) => i.totp).length}</b></div>
-        <div className="kv"><span>Mode</span><b>Single-user (pribadi)</b></div>
-        <div className="kv"><span>Enkripsi</span><b>AES-256-GCM · zero-knowledge</b></div>
+        <h3 className="pc-title">{t.setVaultInfo}</h3>
+        <div className="kv"><span>{t.infoTotal}</span><b>{items.length}</b></div>
+        <div className="kv"><span>{t.infoFav}</span><b>{items.filter((i) => i.favorite).length}</b></div>
+        <div className="kv"><span>{t.infoWith2fa}</span><b>{items.filter((i) => i.totp).length}</b></div>
+        <div className="kv"><span>{t.infoMode}</span><b>{t.infoModeVal}</b></div>
+        <div className="kv"><span>{t.infoEncryption}</span><b>{t.infoEncryptionVal}</b></div>
         <button className="btn sec" style={{ marginTop: 16 }} onClick={onLock}>
-          🔒 Kunci sekarang
+          {t.lockNow}
         </button>
       </div>
 
       <div className="panel-card danger" style={{ marginTop: 14 }}>
-        <h3 className="pc-title" style={{ color: 'var(--danger)' }}>Zona bahaya</h3>
-        <p className="pc-desc">Hapus semua entri di brankas. Tindakan ini permanen dan nggak bisa dibatalkan.</p>
+        <h3 className="pc-title" style={{ color: 'var(--danger)' }}>{t.setDangerZone}</h3>
+        <p className="pc-desc">{t.dangerDesc}</p>
         <button className="btn danger" onClick={onDeleteAll}>
-          Hapus semua item
+          {t.deleteAllBtn}
         </button>
       </div>
     </div>
@@ -1434,25 +1445,13 @@ function SettingsView({
 }
 
 /* ───────────────────────── FAQ ───────────────────────── */
-const FAQS = [
-  { q: 'Apa itu myVault?', a: 'Brankas password pribadi yang menyimpan semua login (ID & password) kamu di satu tempat, terenkripsi penuh.' },
-  { q: 'Seberapa aman data saya?', a: 'Sangat aman. Semua dienkripsi di perangkat kamu pakai AES-256-GCM sebelum dikirim. Server cuma menyimpan ciphertext yang teracak.' },
-  { q: 'Gimana kalau saya lupa master password?', a: 'Sayangnya nggak bisa direset. Master password adalah satu-satunya kunci dan nggak pernah disimpan. Kalau lupa, datanya hilang permanen — catat baik-baik.' },
-  { q: 'Bisa diakses dari HP?', a: 'Bisa. Buka URL-nya di browser HP, login pakai email + master password yang sama, datanya langsung kebuka.' },
-  { q: 'Siapa yang bisa lihat password saya?', a: 'Cuma kamu. Bahkan pembuatnya nggak bisa baca, karena zero-knowledge — master password nggak pernah keluar dari perangkat kamu.' },
-  { q: 'Apa itu menu Ringkasan?', a: 'Halaman utama: ringkasan jumlah login, kategori, favorit, dan skor keamanan, plus aksi cepat dan entri terbaru.' },
-  { q: 'Gimana cara menandai favorit?', a: 'Klik ikon ⭐ di entri. Favorit bisa dilihat di menu ⭐ Favorit.' },
-  { q: 'Apa itu menu Keamanan?', a: 'Ngecek password lemah (kependekan), dipakai ulang, atau tanpa password. Klik "Perbaiki" buat langsung edit.' },
-  { q: 'Gimana cara backup?', a: 'Menu Backup → Unduh backup (file terenkripsi). Pulihkan dengan Impor pakai master password yang sama.' },
-  { q: 'Bisa ganti tema?', a: 'Bisa. Menu Pengaturan → toggle tema gelap/terang.' },
-  { q: 'Kenapa cuma bisa 1 akun?', a: 'Ini brankas pribadi single-user. Setelah akun pertama dibuat, registrasi otomatis ketutup.' },
-];
 function FaqView() {
+  const t = useAppT();
   return (
     <div className="wrap">
       <div className="faq">
-        <p className="faq-intro">Hal-hal yang sering ditanyain soal brankas ini.</p>
-        {FAQS.map((f, i) => (
+        <p className="faq-intro">{t.faqIntro}</p>
+        {t.faqs.map((f, i) => (
           <details key={i} className="faq-item">
             <summary>{f.q}</summary>
             <p>{f.a}</p>
@@ -1463,19 +1462,19 @@ function FaqView() {
   );
 }
 
-// Relative time in Indonesian, e.g. "3 hari lalu". Runs in the browser.
-function timeAgo(iso?: string): string {
+// Relative time, e.g. "3 hari lalu" / "3 days ago". Runs in the browser.
+function timeAgo(iso: string | undefined, t: AppDict): string {
   if (!iso) return '';
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60) return 'baru saja';
+  if (diff < 60) return t.taJustNow;
   const units: [number, string][] = [
-    [60, 'menit'],
-    [3600, 'jam'],
-    [86400, 'hari'],
-    [2592000, 'bulan'],
-    [31536000, 'tahun'],
+    [60, t.taMinute],
+    [3600, t.taHour],
+    [86400, t.taDay],
+    [2592000, t.taMonth],
+    [31536000, t.taYear],
   ];
-  let label = 'menit', value = Math.floor(diff / 60);
+  let label = t.taMinute, value = Math.floor(diff / 60);
   for (let i = 0; i < units.length; i++) {
     const [sec, name] = units[i];
     const next = units[i + 1];
@@ -1485,7 +1484,7 @@ function timeAgo(iso?: string): string {
       break;
     }
   }
-  return `${value} ${label} lalu`;
+  return `${value} ${label} ${t.taAgo}`;
 }
 
 /* ───────────────────────── Item row ───────────────────────── */
@@ -1527,10 +1526,11 @@ function ItemRow({
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
 } & RowProps) {
+  const t = useAppT();
   const [show, setShow] = useState(false);
   const [imgErr, setImgErr] = useState(false);
-  const t = typeOf(item);
-  const title = item.title || '(tanpa judul)';
+  const ty = typeOf(item);
+  const title = item.title || t.noTitle;
   const href = /^https?:\/\//.test(item.url) ? item.url : `https://${item.url}`;
   const domain = item.url ? item.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : '';
   const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64` : '';
@@ -1541,17 +1541,17 @@ function ItemRow({
   const idNumber = item.idNumber || '';
   // Which types have something worth hiding behind the eye toggle.
   const hasSecret =
-    (t === 'login' && !!item.password) ||
-    (t === 'card' && (!!cardNumber || !!item.cardCvv)) ||
-    (t === 'note' && !!notes) ||
-    (t === 'identity' && !!(item.email || item.phone || item.address || idNumber));
+    (ty === 'login' && !!item.password) ||
+    (ty === 'card' && (!!cardNumber || !!item.cardCvv)) ||
+    (ty === 'note' && !!notes) ||
+    (ty === 'identity' && !!(item.email || item.phone || item.address || idNumber));
 
   const idRow = (label: string, value?: string, copyLabel?: string) =>
     value ? (
       <div className="cf-row">
         <span className="cf-label">{label}</span>
         <span className="cf-val">{value}</span>
-        <button className="iconbtn" title="Salin" onClick={() => onCopy(value, copyLabel || label)}>
+        <button className="iconbtn" title={t.rowCopy} onClick={() => onCopy(value, copyLabel || label)}>
           <CopyIcon />
         </button>
       </div>
@@ -1563,37 +1563,37 @@ function ItemRow({
       onClick={selectMode ? () => onToggleSelect?.(item.id) : undefined}
     >
       {selectMode && <div className={`sel-check ${selected ? 'on' : ''}`} aria-hidden />}
-      <div className={`ic ic-${t}`}>
-        {t === 'login' && favicon && !imgErr ? (
+      <div className={`ic ic-${ty}`}>
+        {ty === 'login' && favicon && !imgErr ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={favicon} alt="" width={22} height={22} onError={() => setImgErr(true)} />
-        ) : t === 'login' ? (
+        ) : ty === 'login' ? (
           initial
         ) : (
-          <span className="ic-emoji">{typeMeta(t).icon}</span>
+          <span className="ic-emoji">{typeMeta(ty).icon}</span>
         )}
       </div>
       <div className="info">
         <div className="title-row">
-          {t === 'login' && item.url && !selectMode ? (
-            <a className="ttl ttl-link" href={href} target="_blank" rel="noreferrer" title="Buka situs">
+          {ty === 'login' && item.url && !selectMode ? (
+            <a className="ttl ttl-link" href={href} target="_blank" rel="noreferrer" title={t.rowOpenSite}>
               {hl(title, highlight)} ↗
             </a>
           ) : (
             <span className="ttl">{hl(title, highlight)}</span>
           )}
           {item.category && <span className="cat">{hl(item.category, highlight)}</span>}
-          {t === 'login' && item.password && <StrengthDot pw={item.password} />}
+          {ty === 'login' && item.password && <StrengthDot pw={item.password} />}
         </div>
 
         {/* Type-specific subtitle */}
-        {t === 'login' && item.username && <div className="usr">{hl(item.username, highlight)}</div>}
-        {t === 'card' && cardNumber && (
+        {ty === 'login' && item.username && <div className="usr">{hl(item.username, highlight)}</div>}
+        {ty === 'card' && cardNumber && (
           <div className="usr mono">{show ? groupCard(cardNumber) : maskCard(cardNumber)}</div>
         )}
-        {t === 'card' && item.cardHolder && <div className="usr">{hl(item.cardHolder, highlight)}</div>}
-        {t === 'note' && notes && <div className={`usr ${show ? '' : 'note-preview'}`}>{notes.split('\n')[0]}</div>}
-        {t === 'identity' && (item.fullName || idNumber) && (
+        {ty === 'card' && item.cardHolder && <div className="usr">{hl(item.cardHolder, highlight)}</div>}
+        {ty === 'note' && notes && <div className={`usr ${show ? '' : 'note-preview'}`}>{notes.split('\n')[0]}</div>}
+        {ty === 'identity' && (item.fullName || idNumber) && (
           <div className="usr">
             {hl(item.fullName || '', highlight)}
             {item.fullName && idNumber ? ' · ' : ''}
@@ -1601,21 +1601,21 @@ function ItemRow({
           </div>
         )}
 
-        {t === 'login' && item.totp && <TotpBadge secret={item.totp} onCopy={onCopy} />}
+        {ty === 'login' && item.totp && <TotpBadge secret={item.totp} onCopy={onCopy} />}
 
         {/* Expanded details */}
-        {show && t === 'login' && item.password && <div className="pw">{item.password}</div>}
-        {show && t === 'card' && (
+        {show && ty === 'login' && item.password && <div className="pw">{item.password}</div>}
+        {show && ty === 'card' && (
           <>
-            {idRow('Exp', item.cardExpiry, 'Kadaluarsa')}
-            {idRow('CVV', item.cardCvv)}
+            {idRow(t.idRowExp, item.cardExpiry, t.lblExpiry)}
+            {idRow(t.idRowCvv, item.cardCvv)}
           </>
         )}
-        {show && t === 'identity' && (
+        {show && ty === 'identity' && (
           <>
-            {idRow('Email', item.email)}
-            {idRow('Telepon', item.phone)}
-            {idRow('Alamat', item.address)}
+            {idRow(t.idRowEmail, item.email)}
+            {idRow(t.idRowPhone, item.phone)}
+            {idRow(t.idRowAddress, item.address)}
           </>
         )}
         {show &&
@@ -1623,10 +1623,10 @@ function ItemRow({
             .filter((c) => c.label || c.value)
             .map((c, i) => (
               <div className="cf-row" key={i}>
-                <span className="cf-label">{c.label || 'Field'}</span>
+                <span className="cf-label">{c.label || t.lblField}</span>
                 <span className="cf-val">{c.value}</span>
                 {c.value && (
-                  <button className="iconbtn" title="Salin" onClick={() => onCopy(c.value, c.label || 'Field')}>
+                  <button className="iconbtn" title={t.rowCopy} onClick={() => onCopy(c.value, c.label || t.lblField)}>
                     <CopyIcon />
                   </button>
                 )}
@@ -1636,57 +1636,57 @@ function ItemRow({
       </div>
       {!selectMode && (
       <div className="acts">
-        {t === 'login' && onLogin && item.url && item.password && (
-          <button className="iconbtn go" title="Buka & login terpandu" onClick={() => onLogin(item)}>
+        {ty === 'login' && onLogin && item.url && item.password && (
+          <button className="iconbtn go" title={t.rowLoginGuided} onClick={() => onLogin(item)}>
             <LoginIcon />
           </button>
         )}
         <button
           className={`iconbtn ${item.favorite ? 'fav' : ''}`}
-          title={item.favorite ? 'Hapus dari favorit' : 'Jadikan favorit'}
+          title={item.favorite ? t.rowUnfav : t.rowFav}
           onClick={() => onToggleFav(item)}
         >
           <StarIcon filled={item.favorite} />
         </button>
-        {t === 'login' && item.username && (
-          <button className="iconbtn" title="Salin username" onClick={() => onCopy(item.username, 'Username')}>
+        {ty === 'login' && item.username && (
+          <button className="iconbtn" title={t.rowCopyUsername} onClick={() => onCopy(item.username, t.lblUsername)}>
             <UserIcon />
           </button>
         )}
-        {t === 'login' && item.password && (
-          <button className="iconbtn primary" title="Salin password" onClick={() => onCopy(item.password, 'Password')}>
+        {ty === 'login' && item.password && (
+          <button className="iconbtn primary" title={t.rowCopyPassword} onClick={() => onCopy(item.password, t.lblPassword)}>
             <CopyIcon />
           </button>
         )}
-        {t === 'card' && cardNumber && (
-          <button className="iconbtn primary" title="Salin nomor kartu" onClick={() => onCopy(onlyDigits(cardNumber), 'Nomor kartu')}>
+        {ty === 'card' && cardNumber && (
+          <button className="iconbtn primary" title={t.rowCopyCardNumber} onClick={() => onCopy(onlyDigits(cardNumber), t.lblCardNumber)}>
             <CopyIcon />
           </button>
         )}
-        {t === 'note' && notes && (
-          <button className="iconbtn primary" title="Salin catatan" onClick={() => onCopy(notes, 'Catatan')}>
+        {ty === 'note' && notes && (
+          <button className="iconbtn primary" title={t.rowCopyNotes} onClick={() => onCopy(notes, t.lblNotes)}>
             <CopyIcon />
           </button>
         )}
-        {t === 'identity' && idNumber && (
-          <button className="iconbtn primary" title="Salin nomor identitas" onClick={() => onCopy(idNumber, 'Nomor identitas')}>
+        {ty === 'identity' && idNumber && (
+          <button className="iconbtn primary" title={t.rowCopyIdNumber} onClick={() => onCopy(idNumber, t.lblIdNumber)}>
             <CopyIcon />
           </button>
         )}
         {hasSecret && (
-          <button className="iconbtn" title={show ? 'Sembunyikan' : 'Lihat detail'} onClick={() => setShow((s) => !s)}>
+          <button className="iconbtn" title={show ? t.rowHide : t.rowShowDetail} onClick={() => setShow((s) => !s)}>
             {show ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         )}
-        {t === 'login' && item.url && (
-          <a className="iconbtn" title="Buka situs" href={href} target="_blank" rel="noreferrer">
+        {ty === 'login' && item.url && (
+          <a className="iconbtn" title={t.rowOpenSite} href={href} target="_blank" rel="noreferrer">
             <LinkIcon />
           </a>
         )}
-        <button className="iconbtn" title="Edit" onClick={() => onEditItem(item)}>
+        <button className="iconbtn" title={t.rowEdit} onClick={() => onEditItem(item)}>
           <EditIcon />
         </button>
-        <button className="iconbtn danger" title="Hapus" onClick={() => onDelete(item.id)}>
+        <button className="iconbtn danger" title={t.rowDelete} onClick={() => onDelete(item.id)}>
           <TrashIcon />
         </button>
       </div>
@@ -1729,16 +1729,17 @@ function LoginFlowBar({
   onReopen: () => void;
   onClose: () => void;
 }) {
+  const t = useAppT();
   const [imgErr, setImgErr] = useState(false);
   const initial = (item.title || item.username || '?').charAt(0).toUpperCase();
   const domain = item.url ? item.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : '';
   const favicon = domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64` : '';
   const msg =
     step === 'done'
-      ? '✓ Password disalin — tinggal tempel & login.'
+      ? t.lfDone
       : step === 'ready'
-      ? 'Langkah 2 — ketuk salin password, lalu tempel di situs.'
-      : 'Langkah 1 — username disalin & situs kebuka. Balik ke sini buat lanjut.';
+      ? t.lfReady
+      : t.lfOpened;
 
   return (
     <div className={`loginbar ${step}`}>
@@ -1751,17 +1752,17 @@ function LoginFlowBar({
         )}
       </div>
       <div className="lb-info">
-        <div className="lb-title">{item.title || '(tanpa judul)'}</div>
+        <div className="lb-title">{item.title || t.noTitle}</div>
         <div className="lb-step">{msg}</div>
       </div>
       <div className="lb-acts">
         {step !== 'done' && (
           <>
-            <button className="btn sm" onClick={onCopyPw}>🔑 Salin password</button>
-            <button className="btn ghost sm" title="Buka situs lagi" onClick={onReopen}>↗</button>
+            <button className="btn sm" onClick={onCopyPw}>{t.lfCopyPw}</button>
+            <button className="btn ghost sm" title={t.lfReopen} onClick={onReopen}>↗</button>
           </>
         )}
-        <button className="iconbtn" title="Selesai" onClick={onClose}>✕</button>
+        <button className="iconbtn" title={t.done} onClick={onClose}>✕</button>
       </div>
     </div>
   );
@@ -1769,12 +1770,14 @@ function LoginFlowBar({
 
 // Small coloured dot showing the password's strength.
 function StrengthDot({ pw }: { pw: string }) {
+  const t = useAppT();
   const s = strength(pw);
-  return <span className="str-dot" title={`Kekuatan password: ${s.label}`} style={{ background: s.color, color: s.color }} />;
+  return <span className="str-dot" title={`${t.strengthDotPrefix} ${s.label}`} style={{ background: s.color, color: s.color }} />;
 }
 
 // Rotating 2FA code with a 30s countdown ring; click to copy.
 function TotpBadge({ secret, onCopy }: { secret: string; onCopy: (t: string, l: string) => void }) {
+  const tr = useAppT();
   const [code, setCode] = useState('······');
   const [left, setLeft] = useState(30);
   useEffect(() => {
@@ -1796,7 +1799,7 @@ function TotpBadge({ secret, onCopy }: { secret: string; onCopy: (t: string, l: 
   const valid = /^\d{6}$/.test(code);
   const display = valid ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
   return (
-    <button type="button" className="totp" title="Kode 2FA — klik buat salin" onClick={() => valid && onCopy(code, 'Kode 2FA')}>
+    <button type="button" className="totp" title={tr.totpTitle} onClick={() => valid && onCopy(code, tr.lblTotpCode)}>
       <span className="totp-ring" style={{ ['--p']: `${(left / 30) * 100}%` } as React.CSSProperties} />
       <span className="totp-code">{display}</span>
       <span className="totp-left">{left}s</span>
@@ -1804,7 +1807,8 @@ function TotpBadge({ secret, onCopy }: { secret: string; onCopy: (t: string, l: 
   );
 }
 
-const GEN_LABELS: Record<string, string> = { lower: 'kecil', upper: 'besar', digit: 'angka', symbol: 'simbol' };
+const genLabel = (k: 'lower' | 'upper' | 'digit' | 'symbol', t: AppDict): string =>
+  k === 'upper' ? t.genLblUpper : k === 'digit' ? t.genLblDigit : k === 'symbol' ? t.genLblSymbol : t.genLblLower;
 
 /* ───────────────────────── Modal ───────────────────────── */
 function ItemModal({
@@ -1820,6 +1824,7 @@ function ItemModal({
   onClose: () => void;
   onSave: (f: Fields, id: string | null) => Promise<boolean>;
 }) {
+  const t = useAppT();
   const [f, setF] = useState<Fields>(initial);
   const [showGen, setShowGen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1852,9 +1857,9 @@ function ItemModal({
   return (
     <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <h2>{id ? 'Edit entri' : 'Entri baru'}</h2>
+        <h2>{id ? t.modalEditTitle : t.modalNewTitle}</h2>
         <form onSubmit={submit}>
-          <label className="fld">Tipe</label>
+          <label className="fld">{t.fldType}</label>
           <div className="seg type-seg" style={{ marginBottom: 14 }}>
             {ITEM_TYPES.map((it) => (
               <button
@@ -1863,12 +1868,12 @@ function ItemModal({
                 className={`seg-btn ${typeOf(f) === it.key ? 'on' : ''}`}
                 onClick={() => setF((p) => ({ ...p, type: it.key }))}
               >
-                {it.icon} {it.label}
+                {it.icon} {typeLabel(it.key, t)}
               </button>
             ))}
           </div>
 
-          <label className="fld">Judul</label>
+          <label className="fld">{t.fldTitle}</label>
           <input
             className="input"
             autoFocus
@@ -1882,10 +1887,10 @@ function ItemModal({
 
           {typeOf(f) === 'login' && (
             <>
-              <label className="fld">Username / email</label>
+              <label className="fld">{t.fldUsername}</label>
               <input className="input" value={f.username} onChange={(e) => set('username', e.target.value)} placeholder="kamu@email.com" />
 
-              <label className="fld">Password</label>
+              <label className="fld">{t.fldPassword}</label>
               <div className="row2">
                 <input className="input" value={f.password} onChange={(e) => set('password', e.target.value)} placeholder="••••••••" />
                 <button type="button" className="btn sec" onClick={() => setShowGen((s) => !s)}>⚙</button>
@@ -1900,11 +1905,11 @@ function ItemModal({
                 <div className="gen">
                   <div className="row2">
                     <input className="input" style={{ marginBottom: 0 }} readOnly value={f.password} />
-                    <button type="button" className="btn" onClick={() => set('password', generatePassword(opts))}>Buat</button>
+                    <button type="button" className="btn" onClick={() => set('password', generatePassword(opts))}>{t.genCreate}</button>
                   </div>
                   <div className="opts">
                     <label>
-                      Pjg
+                      {t.genLenShort}
                       <input
                         type="number"
                         min={8}
@@ -1917,22 +1922,22 @@ function ItemModal({
                     {(['lower', 'upper', 'digit', 'symbol'] as const).map((k) => (
                       <label key={k}>
                         <input type="checkbox" checked={opts[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} />
-                        {GEN_LABELS[k]}
+                        {genLabel(k, t)}
                       </label>
                     ))}
                   </div>
                 </div>
               )}
 
-              <label className="fld">Website (opsional)</label>
+              <label className="fld">{t.fldWebsite}</label>
               <input className="input" value={f.url} onChange={(e) => set('url', e.target.value)} placeholder="facebook.com" />
 
-              <label className="fld">Kode 2FA / TOTP (opsional)</label>
+              <label className="fld">{t.fldTotp}</label>
               <input
                 className="input"
                 value={f.totp ?? ''}
                 onChange={(e) => set('totp', e.target.value)}
-                placeholder="Secret base32, mis. JBSWY3DPEHPK3PXP"
+                placeholder={t.fldTotpPlaceholder}
                 style={{ fontFamily: 'ui-monospace, monospace' }}
               />
             </>
@@ -1940,10 +1945,10 @@ function ItemModal({
 
           {typeOf(f) === 'card' && (
             <>
-              <label className="fld">Nama di kartu</label>
+              <label className="fld">{t.fldCardHolder}</label>
               <input className="input" value={f.cardHolder ?? ''} onChange={(e) => set('cardHolder', e.target.value)} placeholder="NAMA LENGKAP" />
 
-              <label className="fld">Nomor kartu</label>
+              <label className="fld">{t.fldCardNumber}</label>
               <input
                 className="input"
                 value={f.cardNumber ?? ''}
@@ -1955,11 +1960,11 @@ function ItemModal({
 
               <div className="row2">
                 <div style={{ flex: 1 }}>
-                  <label className="fld">Masa berlaku</label>
+                  <label className="fld">{t.fldCardExpiry}</label>
                   <input className="input" style={{ marginBottom: 0 }} value={f.cardExpiry ?? ''} onChange={(e) => set('cardExpiry', e.target.value)} placeholder="MM/YY" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label className="fld">CVV</label>
+                  <label className="fld">{t.fldCvv}</label>
                   <input className="input" style={{ marginBottom: 0 }} value={f.cardCvv ?? ''} onChange={(e) => set('cardCvv', e.target.value)} placeholder="123" inputMode="numeric" />
                 </div>
               </div>
@@ -1968,10 +1973,10 @@ function ItemModal({
 
           {typeOf(f) === 'identity' && (
             <>
-              <label className="fld">Nama lengkap</label>
-              <input className="input" value={f.fullName ?? ''} onChange={(e) => set('fullName', e.target.value)} placeholder="Nama sesuai identitas" />
+              <label className="fld">{t.fldFullName}</label>
+              <input className="input" value={f.fullName ?? ''} onChange={(e) => set('fullName', e.target.value)} placeholder={t.fldFullNamePlaceholder} />
 
-              <label className="fld">Nomor identitas (KTP / NIK / Paspor)</label>
+              <label className="fld">{t.fldIdNumber}</label>
               <input
                 className="input"
                 value={f.idNumber ?? ''}
@@ -1980,38 +1985,38 @@ function ItemModal({
                 style={{ fontFamily: 'ui-monospace, monospace' }}
               />
 
-              <label className="fld">Email (opsional)</label>
+              <label className="fld">{t.fldEmail}</label>
               <input className="input" value={f.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="kamu@email.com" />
 
-              <label className="fld">Telepon (opsional)</label>
+              <label className="fld">{t.fldPhone}</label>
               <input className="input" value={f.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="08xxxxxxxxxx" />
 
-              <label className="fld">Alamat (opsional)</label>
+              <label className="fld">{t.fldAddress}</label>
               <textarea className="input" rows={2} value={f.address ?? ''} onChange={(e) => set('address', e.target.value)} style={{ resize: 'vertical' }} />
             </>
           )}
 
-          <label className="fld">Kategori (opsional)</label>
+          <label className="fld">{t.fldCategory}</label>
           <input className="input" value={f.category} onChange={(e) => set('category', e.target.value)} placeholder="Sosial" />
 
-          <label className="fld">Catatan (opsional)</label>
+          <label className="fld">{t.fldNotes}</label>
           <textarea className="input" rows={typeOf(f) === 'note' ? 6 : 3} value={f.notes} onChange={(e) => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
 
-          <label className="fld">Field tambahan (opsional)</label>
+          <label className="fld">{t.fldCustom}</label>
           {(f.customFields ?? []).map((field, i) => (
             <div className="row2" key={i} style={{ marginBottom: 8 }}>
               <input
-                className="input" style={{ marginBottom: 0, flex: '0 0 34%' }} placeholder="Label"
+                className="input" style={{ marginBottom: 0, flex: '0 0 34%' }} placeholder={t.customLabel}
                 value={field.label}
                 onChange={(e) => setF((p) => ({ ...p, customFields: (p.customFields ?? []).map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) }))}
               />
               <input
-                className="input" style={{ marginBottom: 0 }} placeholder="Nilai"
+                className="input" style={{ marginBottom: 0 }} placeholder={t.customValue}
                 value={field.value}
                 onChange={(e) => setF((p) => ({ ...p, customFields: (p.customFields ?? []).map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) }))}
               />
               <button
-                type="button" className="btn ghost" title="Hapus field"
+                type="button" className="btn ghost" title={t.removeField}
                 onClick={() => setF((p) => ({ ...p, customFields: (p.customFields ?? []).filter((_, j) => j !== i) }))}
               >
                 ✕
@@ -2022,21 +2027,21 @@ function ItemModal({
             type="button" className="btn sec" style={{ marginBottom: 12 }}
             onClick={() => setF((p) => ({ ...p, customFields: [...(p.customFields ?? []), { label: '', value: '' }] }))}
           >
-            + Field tambahan
+            {t.addField}
           </button>
 
           {meta?.updatedAt && (
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '14px 0 0', textAlign: 'right' }}>
-              Diperbarui {timeAgo(meta.updatedAt)}
-              {meta.createdAt ? ` · dibuat ${timeAgo(meta.createdAt)}` : ''}
+              {t.metaUpdated} {timeAgo(meta.updatedAt, t)}
+              {meta.createdAt ? ` ${t.metaCreatedPrefix} ${timeAgo(meta.createdAt, t)}` : ''}
             </p>
           )}
           <div className="modal-acts">
             <button type="button" className="btn ghost" onClick={onClose}>
-              Batal
+              {t.cancel}
             </button>
             <button className="btn" disabled={busy}>
-              {busy ? 'Menyimpan…' : 'Simpan'}
+              {busy ? t.saving : t.save}
             </button>
           </div>
         </form>
