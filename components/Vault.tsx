@@ -5,6 +5,7 @@ import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
 import { generatePassword, generatePassphrase, passphraseEntropy, type GenOpts, type PassphraseOpts } from '@/lib/pwgen';
 import { strength, strengthFromBits, entropyBits, crackTimeLabel } from '@/lib/strength';
 import { pwnedCount } from '@/lib/breach';
+import { parseCsv, csvToLogins } from '@/lib/csv';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
@@ -621,13 +622,16 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
     const loginCount = items.filter((i) => typeOf(i) === 'login').length;
     const withTotp = items.filter((i) => i.totp).length;
     const flagged = [...new Set([...weak, ...reused])];
+    // Passwords not updated in over 6 months — worth rotating.
+    const staleBefore = Date.now() - 180 * 86400000;
+    const stale = items.filter((i) => i.password && i.updatedAt && new Date(i.updatedAt).getTime() < staleBefore);
     const dist = [0, 0, 0, 0, 0];
     for (const i of items) if (i.password) dist[strength(i.password).score]++;
     const total = items.length;
     const score = withPw
       ? Math.max(0, Math.min(100, Math.round(((withPw - weak.length - reused.length) / withPw) * 100)))
       : 100;
-    return { total, weak, reused, noPw, withPw, loginCount, withTotp, flagged, dist, score };
+    return { total, weak, reused, noPw, withPw, loginCount, withTotp, flagged, stale, dist, score };
   }, [items]);
 
   const { total, weak, reused, noPw, flagged } = m;
@@ -767,6 +771,30 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
         </>
       ) : (
         <div className="empty">👍 Aman — nggak ada password yang lemah atau dipakai ulang.</div>
+      )}
+
+      {m.stale.length > 0 && (
+        <>
+          <p className="sec-hint" style={{ marginTop: 18 }}>⏳ Password lama (belum diganti &gt; 6 bulan):</p>
+          {m.stale.map((it) => (
+            <div className="item" key={it.id}>
+              <div className="ic">{(it.title || it.username || '?').charAt(0).toUpperCase()}</div>
+              <div className="info">
+                <div className="title-row">
+                  <span className="ttl">{it.title || '(tanpa judul)'}</span>
+                </div>
+                <div className="usr" style={{ color: 'var(--muted)' }}>
+                  Terakhir diubah {timeAgo(it.updatedAt)} — pertimbangkan ganti
+                </div>
+              </div>
+              <div className="acts">
+                <button className="iconbtn" title="Ganti password" onClick={() => onEdit(it)}>
+                  <EditIcon />
+                </button>
+              </div>
+            </div>
+          ))}
+        </>
       )}
     </div>
   );
@@ -966,6 +994,36 @@ function BackupView({
     e.target.value = '';
   }
 
+  async function importCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const logins = csvToLogins(parseCsv(await file.text()));
+      if (logins.length === 0) {
+        flash('Nggak nemu login di CSV ini');
+      } else {
+        let n = 0;
+        for (const l of logins) {
+          const fields = { type: 'login', title: l.title, username: l.username, password: l.password, url: l.url, notes: l.notes };
+          const data = await encryptStr(encKey, JSON.stringify(fields));
+          const res = await fetch('/api/vault', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ data }),
+          });
+          if (res.ok) n++;
+        }
+        flash(`${n} login diimpor dari CSV`);
+        reload();
+      }
+    } catch {
+      flash('CSV nggak valid');
+    }
+    setBusy(false);
+    e.target.value = '';
+  }
+
   return (
     <div className="wrap">
       <div className="panel-card">
@@ -986,6 +1044,20 @@ function BackupView({
           Pilih file backup
           <input type="file" accept="application/json" style={{ display: 'none' }} onChange={importBackup} disabled={busy} />
         </label>
+      </div>
+      <div className="panel-card" style={{ marginTop: 14 }}>
+        <h3 className="pc-title">🌐 Impor dari browser / manager lain</h3>
+        <p className="pc-desc">
+          Pindah dari <b>Chrome</b>, Firefox, Bitwarden, LastPass, dll. Ekspor password ke file <b>CSV</b> dari sana,
+          lalu pilih di sini — kolom (judul, username, password, website) dikenali otomatis.
+        </p>
+        <label className="btn sec" style={{ display: 'inline-block', cursor: busy ? 'default' : 'pointer' }}>
+          Pilih file CSV
+          <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={importCsv} disabled={busy} />
+        </label>
+        <p className="pc-desc" style={{ marginTop: 12, marginBottom: 0, fontSize: 12.5, color: 'var(--danger)' }}>
+          ⚠️ File CSV nggak terenkripsi — hapus dari komputer kamu setelah impor selesai.
+        </p>
       </div>
     </div>
   );
