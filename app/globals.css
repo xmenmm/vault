@@ -934,3 +934,13 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 .note-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-style: italic; opacity: 0.85; }
 .type-seg { flex-wrap: wrap; }
 .type-seg .seg-btn { flex: 1 1 auto; font-size: 13px; white-space: nowrap; }
+
+/* ── Urutkan daftar ── */
+.sort-sel {
+  padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); font-size: 13px; cursor: pointer; flex: none;
+}
+.sort-sel:focus { outline: none; border-color: var(--accent); }
+@media (max-width: 520px) {
+  .sort-sel { font-size: 12px; padding: 7px 8px; max-width: 130px; }
+}

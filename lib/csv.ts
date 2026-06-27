@@ -31,6 +31,19 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((v) => v.trim() !== ''));
 }
 
+// Quote a CSV field when it contains a comma, quote, or newline (RFC 4180).
+function csvField(v: string): string {
+  const s = v ?? '';
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Build a Chrome-compatible CSV (so it can be re-imported anywhere) from rows.
+export function toCsv(rows: { name: string; url: string; username: string; password: string; note: string }[]): string {
+  const header = 'name,url,username,password,note';
+  const body = rows.map((r) => [r.name, r.url, r.username, r.password, r.note].map(csvField).join(','));
+  return [header, ...body].join('\n');
+}
+
 export type CsvLogin = { title: string; username: string; password: string; url: string; notes: string };
 
 // Map a parsed CSV (with header row) to login fields, matching common column

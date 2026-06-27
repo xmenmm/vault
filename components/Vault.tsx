@@ -5,7 +5,7 @@ import { decryptStr, encryptStr, type Keys } from '@/lib/crypto';
 import { generatePassword, generatePassphrase, passphraseEntropy, type GenOpts, type PassphraseOpts } from '@/lib/pwgen';
 import { strength, strengthFromBits, entropyBits, crackTimeLabel } from '@/lib/strength';
 import { pwnedCount } from '@/lib/breach';
-import { parseCsv, csvToLogins } from '@/lib/csv';
+import { parseCsv, csvToLogins, toCsv } from '@/lib/csv';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
@@ -72,6 +72,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [firstLoad, setFirstLoad] = useState(true);
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'recent' | 'title' | 'weak'>('recent');
   const [view, setView] = useState<View>('overview');
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -289,13 +290,24 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const shown = useMemo(() => {
     const base = view === 'favorites' ? items.filter((i) => i.favorite) : items;
     const q = query.trim().toLowerCase();
-    return base.filter((i) => {
+    const filtered = base.filter((i) => {
       if (cat && i.category.trim() !== cat) return false;
       if (q && ![i.title, i.username, i.url, i.category].some((v) => v.toLowerCase().includes(q)))
         return false;
       return true;
     });
-  }, [items, query, cat, view]);
+    const out = [...filtered];
+    if (sortBy === 'title') {
+      out.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    } else if (sortBy === 'weak') {
+      const sc = (i: Item) => (i.password ? strength(i.password).score : 99);
+      out.sort((a, b) => sc(a) - sc(b) || (a.title || '').localeCompare(b.title || ''));
+    } else {
+      const t = (i: Item) => (i.updatedAt ? new Date(i.updatedAt).getTime() : 0);
+      out.sort((a, b) => t(b) - t(a));
+    }
+    return out;
+  }, [items, query, cat, view, sortBy]);
 
   const rowProps = { onCopy: copy, onEditItem: setEditing, onDelete: remove, onToggleFav: toggleFav, onLogin: startLogin };
 
@@ -365,6 +377,16 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
                 <input placeholder="Cari…" value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
               <div className="sp" />
+              <select
+                className="sort-sel"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'recent' | 'title' | 'weak')}
+                title="Urutkan"
+              >
+                <option value="recent">Terbaru diubah</option>
+                <option value="title">Judul A–Z</option>
+                <option value="weak">Terlemah dulu</option>
+              </select>
               <button className="btn sm" onClick={() => setEditing('new')}>
                 + Tambah
               </button>
@@ -994,6 +1016,41 @@ function BackupView({
     e.target.value = '';
   }
 
+  async function exportCsv() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/vault');
+      const { items } = await res.json();
+      const rows: { name: string; url: string; username: string; password: string; note: string }[] = [];
+      for (const it of items ?? []) {
+        if (typeof it.data !== 'string') continue;
+        try {
+          const f = JSON.parse(await decryptStr(encKey, it.data));
+          if ((f.type ?? 'login') !== 'login') continue; // CSV format is for logins
+          rows.push({ name: f.title || '', url: f.url || '', username: f.username || '', password: f.password || '', note: f.notes || '' });
+        } catch {
+          /* skip undecryptable row */
+        }
+      }
+      if (rows.length === 0) {
+        flash('Nggak ada login buat diekspor');
+        setBusy(false);
+        return;
+      }
+      const blob = new Blob([toCsv(rows)], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'myvault-logins.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      flash(`${rows.length} login diekspor ke CSV`);
+    } catch {
+      flash('Gagal ekspor CSV');
+    }
+    setBusy(false);
+  }
+
   async function importCsv(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1046,17 +1103,20 @@ function BackupView({
         </label>
       </div>
       <div className="panel-card" style={{ marginTop: 14 }}>
-        <h3 className="pc-title">🌐 Impor dari browser / manager lain</h3>
+        <h3 className="pc-title">🌐 Impor / Ekspor CSV</h3>
         <p className="pc-desc">
-          Pindah dari <b>Chrome</b>, Firefox, Bitwarden, LastPass, dll. Ekspor password ke file <b>CSV</b> dari sana,
-          lalu pilih di sini — kolom (judul, username, password, website) dikenali otomatis.
+          Pindah dari <b>Chrome</b>, Firefox, Bitwarden, LastPass, dll — atau ekspor login kamu buat
+          dibawa ke tempat lain. Kolom (judul, username, password, website) dikenali otomatis.
         </p>
-        <label className="btn sec" style={{ display: 'inline-block', cursor: busy ? 'default' : 'pointer' }}>
-          Pilih file CSV
-          <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={importCsv} disabled={busy} />
-        </label>
+        <div className="row2" style={{ flexWrap: 'wrap' }}>
+          <label className="btn sec" style={{ display: 'inline-flex', alignItems: 'center', cursor: busy ? 'default' : 'pointer' }}>
+            ⬆ Impor CSV
+            <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={importCsv} disabled={busy} />
+          </label>
+          <button type="button" className="btn sec" disabled={busy} onClick={exportCsv}>⬇ Ekspor login ke CSV</button>
+        </div>
         <p className="pc-desc" style={{ marginTop: 12, marginBottom: 0, fontSize: 12.5, color: 'var(--danger)' }}>
-          ⚠️ File CSV nggak terenkripsi — hapus dari komputer kamu setelah impor selesai.
+          ⚠️ File CSV nggak terenkripsi — hapus dari komputer kamu setelah selesai.
         </p>
       </div>
     </div>
