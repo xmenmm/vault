@@ -89,6 +89,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   // Recently-deleted item kept briefly so a delete can be undone (no confirm prompt).
   const [undo, setUndo] = useState<Fields | null>(null);
   const undoTimer = useRef<number | null>(null);
+  const [palette, setPalette] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [themePref, setThemePref] = useState<'system' | 'dark' | 'light'>('system');
   // "Buka & login" terpandu — sequences copy-username → open-site → copy-password
@@ -150,15 +151,19 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     load();
   }, [load]);
 
-  // Keyboard shortcuts: Ctrl/Cmd+K or "/" jumps to Cari (search) and focuses it.
+  // Keyboard shortcuts: Ctrl/Cmd+K opens the command palette; "/" jumps to Search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (editing) return; // don't hijack keys while the modal is open
       const el = e.target as HTMLElement | null;
       const typing =
         !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-      const isSearch = ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && !typing);
-      if (isSearch) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPalette((p) => !p);
+        return;
+      }
+      if (e.key === '/' && !typing) {
         e.preventDefault();
         setView('search');
         window.setTimeout(() => document.querySelector<HTMLInputElement>('.search-big')?.focus(), 0);
@@ -581,6 +586,28 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         </div>
       )}
 
+      {palette && (
+        <CommandPalette
+          t={t}
+          items={items}
+          actions={[
+            { label: t.addItem, run: () => { setView('vault'); setEditing('new'); } },
+            { label: t.navOverview, run: () => goView('overview') },
+            { label: t.navVault, run: () => goView('vault') },
+            { label: t.navSearch, run: () => goView('search') },
+            { label: t.navFavorites, run: () => goView('favorites') },
+            { label: t.navSecurity, run: () => goView('security') },
+            { label: t.navGenerator, run: () => goView('generator') },
+            { label: t.navBackup, run: () => goView('backup') },
+            { label: t.navSettings, run: () => goView('settings') },
+            { label: t.navFaq, run: () => goView('faq') },
+            { label: t.lockVault, run: () => onLock() },
+          ]}
+          onItem={(it) => { setView('vault'); setEditing(it); }}
+          onClose={() => setPalette(false)}
+        />
+      )}
+
       {undo && (
         <div className="undobar">
           <span>{t.deleted}</span>
@@ -956,6 +983,99 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
     </div>
   );
 }
+/* ───────────────────────── Command palette (⌘K) ───────────────────────── */
+type CmdAction = { label: string; run: () => void };
+type CmdRow = { kind: 'a'; a: CmdAction } | { kind: 'i'; i: Item };
+
+function CommandPalette({
+  t,
+  items,
+  actions,
+  onItem,
+  onClose,
+}: {
+  t: AppDict;
+  items: Item[];
+  actions: CmdAction[];
+  onItem: (it: Item) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(0);
+  const ql = q.trim().toLowerCase();
+  const acts = ql ? actions.filter((a) => a.label.toLowerCase().includes(ql)) : actions;
+  const its = (ql
+    ? items.filter((i) => [i.title, i.username].some((v) => (v || '').toLowerCase().includes(ql)))
+    : items.slice(0, 4)
+  ).slice(0, 8);
+  const flat: CmdRow[] = [
+    ...acts.map((a) => ({ kind: 'a' as const, a })),
+    ...its.map((i) => ({ kind: 'i' as const, i })),
+  ];
+
+  useEffect(() => { setSel(0); }, [q]);
+
+  const exec = (r: CmdRow | undefined) => {
+    if (!r) return;
+    onClose();
+    if (r.kind === 'a') r.a.run();
+    else onItem(r.i);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(flat.length - 1, s + 1)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(0, s - 1)); }
+      else if (e.key === 'Enter') { e.preventDefault(); exec(flat[sel]); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  return (
+    <div className="scrim cmd-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="cmd">
+        <input
+          className="cmd-input"
+          autoFocus
+          placeholder={t.cmdPlaceholder}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <div className="cmd-list">
+          {flat.length === 0 ? (
+            <div className="cmd-empty">{t.noResults}</div>
+          ) : (
+            flat.map((r, i) => (
+              <button
+                key={i}
+                className={`cmd-row ${i === sel ? 'on' : ''}`}
+                onMouseEnter={() => setSel(i)}
+                onClick={() => exec(r)}
+              >
+                {r.kind === 'a' ? (
+                  <>
+                    <span className="cmd-ic">⌘</span>
+                    <span className="cmd-label">{r.a.label}</span>
+                    <span className="cmd-hint">{t.cmdActionHint}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="cmd-ic">🔑</span>
+                    <span className="cmd-label">{r.i.title || '—'}</span>
+                    <span className="cmd-hint">{r.i.username || ''}</span>
+                  </>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ n, label, tone }: { n: number | string; label: string; tone?: 'warn' | 'ok' }) {
   return (
     <div className={`stat ${tone ?? ''}`}>

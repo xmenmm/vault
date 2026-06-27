@@ -48,6 +48,8 @@ const APP = {
     emptyFavorites: 'Belum ada favorit. Klik ⭐ di entri buat menandai.',
     emptyVault: 'Brankas kosong. Klik + Tambah untuk menyimpan login.',
     noResults: 'Nggak ada hasil.',
+    cmdPlaceholder: 'Cari item atau perintah…',
+    cmdActionHint: 'Aksi',
 
     // ── Bulk select bar ──
     selectedSuffix: 'dipilih',
@@ -409,6 +411,8 @@ const APP = {
     emptyFavorites: 'No favorites yet. Click ⭐ on an entry to mark it.',
     emptyVault: 'Vault is empty. Click + Add to save a login.',
     noResults: 'No results.',
+    cmdPlaceholder: 'Search items or run a command…',
+    cmdActionHint: 'Action',
 
     // ── Bulk select bar ──
     selectedSuffix: 'selected',
