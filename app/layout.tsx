@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { VaultProvider } from './providers';
+import { Pwa } from '@/components/Pwa';
 
 export const metadata: Metadata = {
   title: 'myVault — brankas password terenkripsi',
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="id">
       <body>
+        <Pwa />
         <VaultProvider>{children}</VaultProvider>
       </body>
     </html>

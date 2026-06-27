@@ -7,6 +7,7 @@ import { strength, strengthFromBits, entropyBits, crackTimeLabel } from '@/lib/s
 import { pwnedCount } from '@/lib/breach';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
+import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
 
 type CustomField = { label: string; value: string };
 type Fields = {
@@ -985,12 +986,41 @@ function SettingsView({
   const [autolock, setAutolock] = useState('30');
   const [persist, setPersist] = useState(true);
   const [clipclear, setClipclear] = useState('30');
+  const [canInstall, setCanInstall] = useState(false);
+  const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
     setAutolock(localStorage.getItem('vault-autolock') ?? '30');
     setPersist(localStorage.getItem('vault-persist') !== '0');
     setClipclear(localStorage.getItem('vault-clipclear') ?? '30');
+
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setInstalled(standalone);
+    setCanInstall(!!getInstallPrompt());
+    const onCan = () => setCanInstall(true);
+    const onDone = () => { setCanInstall(false); setInstalled(true); };
+    window.addEventListener('pwa-installable', onCan);
+    window.addEventListener('pwa-installed', onDone);
+    return () => {
+      window.removeEventListener('pwa-installable', onCan);
+      window.removeEventListener('pwa-installed', onDone);
+    };
   }, []);
+
+  async function install() {
+    const p = getInstallPrompt();
+    if (!p) {
+      flash('Pakai menu browser → "Tambah ke layar utama"');
+      return;
+    }
+    await p.prompt();
+    const { outcome } = await p.userChoice;
+    clearInstallPrompt();
+    setCanInstall(false);
+    if (outcome === 'accepted') flash('Aplikasi dipasang');
+  }
 
   const saveAutolock = (v: string) => { setAutolock(v); localStorage.setItem('vault-autolock', v); flash('Tersimpan'); };
   const saveClip = (v: string) => { setClipclear(v); localStorage.setItem('vault-clipclear', v); flash('Tersimpan'); };
@@ -1020,6 +1050,26 @@ function SettingsView({
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="panel-card" style={{ marginTop: 14 }}>
+        <h3 className="pc-title">Aplikasi</h3>
+        <div className="kv">
+          <span>
+            Install myVault
+            <br />
+            <small style={{ color: 'var(--muted)' }}>
+              {canInstall || installed
+                ? 'Buka dari layar utama, layar penuh, & bisa offline'
+                : 'Di iPhone: tombol Bagikan → "Tambah ke Layar Utama"'}
+            </small>
+          </span>
+          {installed ? (
+            <span style={{ color: 'var(--ok)', fontWeight: 600, fontSize: 13 }}>✓ Terpasang</span>
+          ) : (
+            <button className="btn sec" onClick={install}>📲 Install</button>
+          )}
         </div>
       </div>
 
