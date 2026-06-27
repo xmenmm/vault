@@ -8,6 +8,7 @@ import { pwnedCount } from '@/lib/breach';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
+import { biometricAvailable, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/webauthn';
 
 type CustomField = { label: string; value: string };
 type Fields = {
@@ -398,7 +399,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         {view === 'generator' && <GeneratorView onCopy={copy} />}
         {view === 'backup' && <BackupView flash={flash} reload={load} encKey={keys.encKey} />}
         {view === 'settings' && (
-          <SettingsView items={items} onLock={onLock} onDeleteAll={deleteAll} themePref={themePref} onSetTheme={applyTheme} flash={flash} />
+          <SettingsView items={items} keys={keys} onLock={onLock} onDeleteAll={deleteAll} themePref={themePref} onSetTheme={applyTheme} flash={flash} />
         )}
         {view === 'faq' && <FaqView />}
       </div>
@@ -970,6 +971,7 @@ const THEME_OPTS: ['system' | 'dark' | 'light', string][] = [
 
 function SettingsView({
   items,
+  keys,
   onLock,
   onDeleteAll,
   themePref,
@@ -977,6 +979,7 @@ function SettingsView({
   flash,
 }: {
   items: Item[];
+  keys: Keys;
   onLock: () => void;
   onDeleteAll: () => void;
   themePref: 'system' | 'dark' | 'light';
@@ -988,11 +991,16 @@ function SettingsView({
   const [clipclear, setClipclear] = useState('30');
   const [canInstall, setCanInstall] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [bioAvail, setBioAvail] = useState(false);
+  const [bioOn, setBioOn] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
 
   useEffect(() => {
     setAutolock(localStorage.getItem('vault-autolock') ?? '30');
     setPersist(localStorage.getItem('vault-persist') !== '0');
     setClipclear(localStorage.getItem('vault-clipclear') ?? '30');
+    setBioOn(biometricEnabled());
+    biometricAvailable().then(setBioAvail);
 
     const standalone =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -1020,6 +1028,31 @@ function SettingsView({
     clearInstallPrompt();
     setCanInstall(false);
     if (outcome === 'accepted') flash('Aplikasi dipasang');
+  }
+
+  async function toggleBio() {
+    if (bioBusy) return;
+    if (bioOn) {
+      disableBiometric();
+      setBioOn(false);
+      flash('Biometrik dimatikan');
+      return;
+    }
+    setBioBusy(true);
+    try {
+      const email = localStorage.getItem('vault-email') || '';
+      if (!email) {
+        flash('Masuk ulang dulu sebelum aktifkan biometrik');
+        return;
+      }
+      await enableBiometric(keys, email);
+      setBioOn(true);
+      flash('Biometrik aktif');
+    } catch (e: unknown) {
+      flash(e instanceof Error ? e.message : 'Gagal aktifkan biometrik');
+    } finally {
+      setBioBusy(false);
+    }
   }
 
   const saveAutolock = (v: string) => { setAutolock(v); localStorage.setItem('vault-autolock', v); flash('Tersimpan'); };
@@ -1075,6 +1108,25 @@ function SettingsView({
 
       <div className="panel-card" style={{ marginTop: 14 }}>
         <h3 className="pc-title">Keamanan &amp; privasi</h3>
+        {bioAvail && (
+          <div className="kv">
+            <span>
+              Buka pakai sidik jari / wajah
+              <br />
+              <small style={{ color: 'var(--muted)' }}>
+                Pakai biometrik perangkat — master password tetap selalu bisa dipakai
+              </small>
+            </span>
+            <button
+              className={`switch ${bioOn ? 'on' : ''}`}
+              onClick={toggleBio}
+              disabled={bioBusy}
+              aria-label="Buka pakai biometrik"
+            >
+              <span className="knob" />
+            </button>
+          </div>
+        )}
         <div className="kv">
           <span>Kunci otomatis saat idle</span>
           <select value={autolock} onChange={(e) => saveAutolock(e.target.value)} style={sel}>

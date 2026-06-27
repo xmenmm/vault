@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { deriveKeys, type Keys } from '@/lib/crypto';
+import { deriveKeys, importEncKey, type Keys } from '@/lib/crypto';
 import { VaultPreview } from '@/components/VaultPreview';
+import { biometricEnabled, unlockWithBiometric } from '@/lib/webauthn';
 
 export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   const [setup, setSetup] = useState<boolean | null>(null);
@@ -12,15 +13,38 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   const [pw2, setPw2] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [bioOn, setBioOn] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/status')
       .then((r) => r.json())
       .then((d) => setSetup(!!d.setup))
       .catch(() => setSetup(false));
+    setBioOn(biometricEnabled());
   }, []);
 
   const creating = setup === true;
+
+  async function bioUnlock() {
+    setErr(null);
+    setBioBusy(true);
+    try {
+      const { encKeyB64, authHash, email } = await unlockWithBiometric();
+      const loginRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, authHash }),
+      });
+      if (!loginRes.ok) throw new Error('Sesi kedaluwarsa — masuk pakai master password dulu');
+      const encKey = await importEncKey(encKeyB64);
+      onUnlock({ encKey, authHash });
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Gagal buka dengan biometrik');
+    } finally {
+      setBioBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +84,9 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         const d = await loginRes.json().catch(() => ({}));
         throw new Error(d.error || 'Email atau master password salah');
       }
+      // Remember the email (the username/salt, not secret) so biometric unlock
+      // can refresh the session later.
+      try { localStorage.setItem('vault-email', cleanEmail); } catch { /* ignore */ }
       onUnlock(keys);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Gagal');
@@ -182,6 +209,18 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
                   {busy ? 'Memproses…' : creating ? 'Buat brankas' : 'Buka'}
                 </button>
               </form>
+
+              {!creating && bioOn && (
+                <button
+                  type="button"
+                  onClick={bioUnlock}
+                  disabled={bioBusy}
+                  className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 py-3 font-semibold text-white hover:bg-white/10 transition disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <span className="text-lg">👆</span>
+                  {bioBusy ? 'Memverifikasi…' : 'Buka pakai biometrik'}
+                </button>
+              )}
             </>
           )}
         </div>
