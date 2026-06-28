@@ -1047,3 +1047,6 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 }
 .accent-dot:hover { transform: scale(1.12); }
 .accent-dot.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--panel); }
+
+/* ── Keyboard-highlighted list row ── */
+.item.cursored { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }

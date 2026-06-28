@@ -92,6 +92,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [undo, setUndo] = useState<Fields | null>(null);
   const undoTimer = useRef<number | null>(null);
   const [palette, setPalette] = useState(false);
+  const [cursor, setCursor] = useState(-1); // keyboard-highlighted row in the list
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [themePref, setThemePref] = useState<'system' | 'dark' | 'light'>('system');
   // "Buka & login" terpandu — sequences copy-username → open-site → copy-password
@@ -356,6 +357,25 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
   const rowProps = { onCopy: copy, onEditItem: setEditing, onDelete: remove, onToggleFav: toggleFav, onLogin: startLogin };
 
+  // ── Keyboard list navigation (↑/↓ highlight, Enter opens) ──
+  useEffect(() => { setCursor(-1); }, [view, query, cat, sortBy]);
+  useEffect(() => {
+    const inList = (view === 'vault' || view === 'favorites') && !editing && !palette && !selectMode;
+    if (!inList) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); setCursor((c) => Math.min(shown.length - 1, c + 1)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setCursor((c) => (c <= 0 ? 0 : c - 1)); }
+      else if (e.key === 'Enter' && cursor >= 0 && cursor < shown.length) { e.preventDefault(); setEditing(shown[cursor]); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [view, editing, palette, selectMode, shown, cursor]);
+  useEffect(() => {
+    if (cursor >= 0) document.querySelector('.item.cursored')?.scrollIntoView({ block: 'nearest' });
+  }, [cursor]);
+
   // ── Bulk selection ──
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -532,7 +552,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
                 <div className="empty">{view === 'favorites' ? t.emptyFavorites : t.noResults}</div>
               )
             ) : (
-              shown.map((it) => (
+              shown.map((it, i) => (
                 <ItemRow
                   key={it.id}
                   item={it}
@@ -540,6 +560,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
                   selectMode={selectMode}
                   selected={selected.has(it.id)}
                   onToggleSelect={toggleSelect}
+                  cursored={cursor === i}
                 />
               ))
             )}
@@ -1723,12 +1744,14 @@ function ItemRow({
   selectMode,
   selected,
   onToggleSelect,
+  cursored,
 }: {
   item: Item;
   highlight?: string;
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  cursored?: boolean;
 } & RowProps) {
   const t = useAppT();
   const [show, setShow] = useState(false);
@@ -1763,7 +1786,7 @@ function ItemRow({
 
   return (
     <div
-      className={`item ${selectMode ? 'selectable' : ''} ${selected ? 'selected' : ''}`}
+      className={`item ${selectMode ? 'selectable' : ''} ${selected ? 'selected' : ''} ${cursored ? 'cursored' : ''}`}
       onClick={selectMode ? () => onToggleSelect?.(item.id) : undefined}
     >
       {selectMode && <div className={`sel-check ${selected ? 'on' : ''}`} aria-hidden />}
