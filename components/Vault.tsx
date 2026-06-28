@@ -525,13 +525,11 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
             {loading ? (
               <div className="empty">{t.decrypting}</div>
             ) : shown.length === 0 ? (
-              <div className="empty">
-                {view === 'favorites'
-                  ? t.emptyFavorites
-                  : items.length === 0
-                  ? t.emptyVault
-                  : t.noResults}
-              </div>
+              view !== 'favorites' && items.length === 0 ? (
+                <EmptyVault t={t} onAdd={() => setEditing('new')} onNav={goView} />
+              ) : (
+                <div className="empty">{view === 'favorites' ? t.emptyFavorites : t.noResults}</div>
+              )
             ) : (
               shown.map((it) => (
                 <ItemRow
@@ -1083,6 +1081,23 @@ function Stat({ n, label, tone }: { n: number | string; label: string; tone?: 'w
     <div className={`stat ${tone ?? ''}`}>
       <div className="stat-n">{n}</div>
       <div className="stat-l">{label}</div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Empty-vault onboarding ───────────────────────── */
+function EmptyVault({ t, onAdd, onNav }: { t: AppDict; onAdd: () => void; onNav: (v: View) => void }) {
+  return (
+    <div className="empty-onboard">
+      <div className="eo-icon">🔐</div>
+      <h2 className="eo-title">{t.eoTitle}</h2>
+      <p className="eo-sub">{t.eoSub}</p>
+      <div className="eo-actions">
+        <button className="btn" onClick={onAdd}>➕ {t.eoAddFirst}</button>
+        <button className="btn sec" onClick={() => onNav('backup')}>🌐 {t.eoImport}</button>
+        <button className="btn sec" onClick={() => onNav('generator')}>🎲 {t.eoGenerator}</button>
+      </div>
+      <p className="eo-tip">💡 {t.eoTip}</p>
     </div>
   );
 }

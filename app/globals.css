@@ -1022,3 +1022,19 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 .pwh-val { flex: 1; min-width: 0; font-family: ui-monospace, monospace; font-size: 13px; word-break: break-all; color: var(--muted); }
 .pwh-at { flex: none; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .pw-history .iconbtn { width: 28px; height: 28px; flex: none; }
+
+/* ── Empty-vault onboarding ── */
+.empty-onboard {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: 52px 20px; max-width: 520px; margin: 20px auto 0;
+}
+.eo-icon {
+  font-size: 42px; width: 88px; height: 88px; display: grid; place-items: center;
+  border-radius: 24px; margin-bottom: 20px;
+  background: linear-gradient(145deg, rgba(91, 140, 255, 0.18), rgba(124, 92, 255, 0.1));
+  border: 1px solid var(--border);
+}
+.eo-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+.eo-sub { color: var(--muted); font-size: 14.5px; line-height: 1.55; margin: 10px 0 24px; }
+.eo-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.eo-tip { margin-top: 28px; font-size: 12.5px; color: var(--muted); max-width: 380px; line-height: 1.5; }
