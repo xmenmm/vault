@@ -111,6 +111,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     const resolved = saved ?? system;
     setTheme(resolved);
     document.documentElement.dataset.theme = resolved;
+    try { applyAccent(localStorage.getItem('vault-accent') || 'blue'); } catch { /* ignore */ }
   }, []);
 
   function applyTheme(mode: 'system' | 'dark' | 'light') {
@@ -1394,6 +1395,22 @@ const THEME_KEYS: ('system' | 'dark' | 'light')[] = ['system', 'dark', 'light'];
 const themeLabel = (k: 'system' | 'dark' | 'light', t: AppDict): string =>
   k === 'dark' ? t.themeDark : k === 'light' ? t.themeLight : t.themeSystem;
 
+// Accent presets — applied app-wide by overriding the --accent CSS variables.
+const ACCENTS: { key: string; a: string; d: string }[] = [
+  { key: 'blue', a: '#5b8cff', d: '#3f6fe0' },
+  { key: 'violet', a: '#7c5cff', d: '#5b3fd0' },
+  { key: 'green', a: '#2bb079', d: '#1f9d6a' },
+  { key: 'pink', a: '#e0509c', d: '#c43f80' },
+  { key: 'amber', a: '#e0894c', d: '#c96f35' },
+  { key: 'cyan', a: '#3fb6cf', d: '#2f96b0' },
+];
+function applyAccent(key: string) {
+  const acc = ACCENTS.find((x) => x.key === key) ?? ACCENTS[0];
+  document.documentElement.style.setProperty('--accent', acc.a);
+  document.documentElement.style.setProperty('--accent-d', acc.d);
+  try { localStorage.setItem('vault-accent', acc.key); } catch { /* ignore */ }
+}
+
 function SettingsView({
   items,
   keys,
@@ -1416,6 +1433,7 @@ function SettingsView({
   const [autolock, setAutolock] = useState('30');
   const [persist, setPersist] = useState(true);
   const [clipclear, setClipclear] = useState('30');
+  const [accent, setAccent] = useState('blue');
   const [canInstall, setCanInstall] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [bioAvail, setBioAvail] = useState(false);
@@ -1426,6 +1444,7 @@ function SettingsView({
     setAutolock(localStorage.getItem('vault-autolock') ?? '30');
     setPersist(localStorage.getItem('vault-persist') !== '0');
     setClipclear(localStorage.getItem('vault-clipclear') ?? '30');
+    setAccent(localStorage.getItem('vault-accent') || 'blue');
     setBioOn(biometricEnabled());
     biometricAvailable().then(setBioAvail);
 
@@ -1516,6 +1535,20 @@ function SettingsView({
           <div className="seg">
             <button className={`seg-btn ${lang === 'id' ? 'on' : ''}`} onClick={() => setLang('id')}>{t.langIndonesia}</button>
             <button className={`seg-btn ${lang === 'en' ? 'on' : ''}`} onClick={() => setLang('en')}>{t.langEnglish}</button>
+          </div>
+        </div>
+        <div className="kv">
+          <span>{t.accentLabel}</span>
+          <div className="accent-row">
+            {ACCENTS.map((acc) => (
+              <button
+                key={acc.key}
+                className={`accent-dot ${accent === acc.key ? 'on' : ''}`}
+                style={{ background: acc.a }}
+                aria-label={acc.key}
+                onClick={() => { applyAccent(acc.key); setAccent(acc.key); }}
+              />
+            ))}
           </div>
         </div>
       </div>

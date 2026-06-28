@@ -1038,3 +1038,12 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 .eo-sub { color: var(--muted); font-size: 14.5px; line-height: 1.55; margin: 10px 0 24px; }
 .eo-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .eo-tip { margin-top: 28px; font-size: 12.5px; color: var(--muted); max-width: 380px; line-height: 1.5; }
+
+/* ── Accent color picker ── */
+.accent-row { display: flex; gap: 9px; }
+.accent-dot {
+  width: 26px; height: 26px; border-radius: 50%; padding: 0;
+  border: 2px solid transparent; cursor: pointer; transition: transform 0.12s ease;
+}
+.accent-dot:hover { transform: scale(1.12); }
+.accent-dot.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--panel); }
