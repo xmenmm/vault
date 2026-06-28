@@ -29,6 +29,8 @@ type Fields = {
   // When the password was last changed (set only on password change) — used for
   // the "password lama" reminder so unrelated edits (favorite, title) don't reset it.
   passwordUpdatedAt?: string;
+  // Previous passwords, newest first — archived when the password changes.
+  passwordHistory?: { password: string; at: string }[];
   // Kartu kredit/debit
   cardHolder?: string;
   cardNumber?: string;
@@ -2002,7 +2004,13 @@ function ItemModal({
     // Stamp the password-change time only when the password actually changed, so
     // the "password lama" reminder tracks rotation — not favorites or title edits.
     const pwChanged = !!f.password && f.password !== initial.password;
-    const toSave = pwChanged ? { ...f, passwordUpdatedAt: new Date().toISOString() } : f;
+    let toSave = f;
+    if (pwChanged) {
+      // Archive the old password (if any) so it can be recovered later.
+      const history = [...(f.passwordHistory ?? [])];
+      if (initial.password) history.unshift({ password: initial.password, at: new Date().toISOString() });
+      toSave = { ...f, passwordUpdatedAt: new Date().toISOString(), passwordHistory: history.slice(0, 5) };
+    }
     const ok = await onSave(toSave, id);
     // On success the modal unmounts; on failure keep it open + re-enable Simpan.
     if (!ok) setBusy(false);
@@ -2094,6 +2102,23 @@ function ItemModal({
                 placeholder={t.fldTotpPlaceholder}
                 style={{ fontFamily: 'ui-monospace, monospace' }}
               />
+
+              {(f.passwordHistory?.length ?? 0) > 0 && (
+                <>
+                  <label className="fld">{t.pwHistory}</label>
+                  <div className="pw-history">
+                    {(f.passwordHistory ?? []).map((h, i) => (
+                      <div className="pwh-row" key={i}>
+                        <span className="pwh-val">{h.password}</span>
+                        <span className="pwh-at">{timeAgo(h.at, t)}</span>
+                        <button type="button" className="iconbtn" title={t.rowCopy} onClick={() => navigator.clipboard.writeText(h.password)}>
+                          <CopyIcon />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
 
