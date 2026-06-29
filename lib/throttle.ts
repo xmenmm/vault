@@ -11,7 +11,14 @@
 // Keyed by sha256(email|ip) so no raw email or IP is ever stored.
 
 import crypto from 'node:crypto';
+import type { NextRequest } from 'next/server';
 import { admin } from '@/lib/supabase-admin';
+
+export function clientIp(req: NextRequest): string {
+  const xff = req.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || 'unknown';
+}
 
 const MAX_FAILS = 8; // failures allowed within the window before a lockout
 const WINDOW_MS = 15 * 60 * 1000; // rolling window for counting failures

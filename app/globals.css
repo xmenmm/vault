@@ -1050,3 +1050,14 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 
 /* ── Keyboard-highlighted list row ── */
 .item.cursored { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* ── Two-factor (2FA) settings ── */
+.tf-enroll { border-top: 1px solid var(--border); padding-top: 12px; }
+.tf-steps { margin: 0 0 12px; padding-left: 0; list-style: none; display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
+.tf-qr { background: #fff; padding: 10px; border-radius: 12px; width: fit-content; }
+.tf-qr svg { display: block; width: 176px; height: 176px; }
+.tf-secret { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.tf-key { font-family: ui-monospace, monospace; font-size: 14px; letter-spacing: 1px; background: var(--panel-2); border: 1px solid var(--border); padding: 6px 10px; border-radius: 8px; word-break: break-all; }
+.tf-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tf-codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tf-codes code { font-family: ui-monospace, monospace; font-size: 14px; text-align: center; background: var(--panel-2); border: 1px solid var(--border); padding: 8px; border-radius: 8px; letter-spacing: 1px; }

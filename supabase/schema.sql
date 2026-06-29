@@ -46,3 +46,12 @@ create table if not exists public.login_throttle (
   updated_at   timestamptz not null default now()
 );
 alter table public.login_throttle enable row level security;
+
+-- ── Two-factor authentication (opt-in TOTP for login) ──
+create table if not exists public.user_2fa (
+  owner      uuid primary key references auth.users(id) on delete cascade,
+  secret     text not null,
+  recovery   jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+alter table public.user_2fa enable row level security;

@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authClient } from '@/lib/supabase-admin';
-import { signSession, SESSION_COOKIE } from '@/lib/session';
-import { throttleKey, throttleStatus, recordFail, recordSuccess } from '@/lib/throttle';
+import { signSession, SESSION_COOKIE, sessionCookieOptions, signPending2fa } from '@/lib/session';
+import { throttleKey, throttleStatus, recordFail, recordSuccess, clientIp } from '@/lib/throttle';
+import { getTwoFa } from '@/lib/twofa-server';
 
 export const dynamic = 'force-dynamic';
 
-function clientIp(req: NextRequest): string {
-  const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
-  return req.headers.get('x-real-ip') || 'unknown';
-}
-
 // Verifies email + authHash server-side, then sets a signed session cookie.
 // The browser never talks to Supabase directly. Failed attempts are rate
-// limited per (email + IP) to blunt brute-force / credential-stuffing.
+// limited per (email + IP) to blunt brute-force / credential-stuffing. If the
+// account has 2FA enabled, a session is withheld until the second factor is
+// verified at /api/auth/2fa/verify.
 export async function POST(req: NextRequest) {
   let body: { email?: string; authHash?: string };
   try {
@@ -28,7 +25,6 @@ export async function POST(req: NextRequest) {
 
   const key = throttleKey(email, clientIp(req));
 
-  // Already locked out? Refuse before even touching the auth backend.
   const wait = await throttleStatus(key);
   if (wait > 0) {
     return NextResponse.json(
@@ -54,13 +50,20 @@ export async function POST(req: NextRequest) {
 
   await recordSuccess(key);
 
+  // Password is correct. If this user has 2FA enabled, withhold the session and
+  // ask for the second factor. Fail closed on a real lookup error (don't bypass
+  // the gate); a missing table just means the feature is off.
+  let twofa;
+  try {
+    twofa = await getTwoFa(data.user.id);
+  } catch {
+    return NextResponse.json({ error: 'auth temporarily unavailable' }, { status: 503 });
+  }
+  if (twofa) {
+    return NextResponse.json({ need2fa: true, pending: signPending2fa(data.user.id) });
+  }
+
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(SESSION_COOKIE, signSession(data.user.id), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
+  res.cookies.set(SESSION_COOKIE, signSession(data.user.id), sessionCookieOptions());
   return res;
 }

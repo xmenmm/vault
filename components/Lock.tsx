@@ -19,6 +19,11 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   const [err, setErr] = useState<string | null>(null);
   const [bioOn, setBioOn] = useState(false);
   const [bioBusy, setBioBusy] = useState(false);
+  // After the password (or biometric) verifies, if the account has 2FA we hold
+  // the derived keys here and ask for the code before unlocking.
+  const [twofa, setTwofa] = useState<{ pending: string; keys: Keys } | null>(null);
+  const [code, setCode] = useState('');
+  const [twofaBusy, setTwofaBusy] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/status')
@@ -52,12 +57,40 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         body: JSON.stringify({ email, authHash }),
       });
       if (!loginRes.ok) throw new Error(await loginError(loginRes, t.errExpired));
+      const ld = (await loginRes.json().catch(() => ({}))) as { need2fa?: boolean; pending?: string };
       const encKey = await importEncKey(encKeyB64);
+      try { localStorage.setItem('vault-email', email); } catch { /* ignore */ }
+      if (ld.need2fa && ld.pending) {
+        setCode('');
+        setTwofa({ pending: ld.pending, keys: { encKey, authHash } });
+        return;
+      }
       onUnlock({ encKey, authHash });
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : t.errBio);
     } finally {
       setBioBusy(false);
+    }
+  }
+
+  // Second login step: submit the TOTP / recovery code to get the session.
+  async function submit2fa(e: React.FormEvent) {
+    e.preventDefault();
+    if (!twofa) return;
+    setErr(null);
+    setTwofaBusy(true);
+    try {
+      const res = await fetch('/api/auth/2fa/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pending: twofa.pending, code }),
+      });
+      if (!res.ok) throw new Error(await loginError(res, t.err2faInvalid));
+      onUnlock(twofa.keys);
+    } catch (err: unknown) {
+      setErr(err instanceof Error ? err.message : t.errGeneric);
+    } finally {
+      setTwofaBusy(false);
     }
   }
 
@@ -101,6 +134,12 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
       // Remember the email (the username/salt, not secret) so biometric unlock
       // can refresh the session later.
       try { localStorage.setItem('vault-email', cleanEmail); } catch { /* ignore */ }
+      const ld = (await loginRes.json().catch(() => ({}))) as { need2fa?: boolean; pending?: string };
+      if (ld.need2fa && ld.pending) {
+        setCode('');
+        setTwofa({ pending: ld.pending, keys });
+        return;
+      }
       onUnlock(keys);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : t.errGeneric);
@@ -159,6 +198,51 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
           {setup === null ? (
             <p className="text-neutral-400 text-sm">{t.loading}</p>
+          ) : twofa ? (
+            <>
+              <h1 className="text-2xl font-bold">{t.twofaTitle}</h1>
+              <p className="mt-1.5 text-neutral-400 text-sm">{t.twofaSub}</p>
+              <form onSubmit={submit2fa} className="mt-6 space-y-4">
+                <div>
+                  <label htmlFor="vault-2fa" className={label}>{t.twofaLabel}</label>
+                  <input
+                    id="vault-2fa"
+                    className={field}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    autoFocus
+                    required
+                    aria-invalid={!!err}
+                    aria-describedby={err ? 'login-err' : undefined}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    style={{ letterSpacing: 6, fontFamily: 'ui-monospace, monospace' }}
+                  />
+                </div>
+
+                {err && (
+                  <p id="login-err" role="alert" className="text-sm text-[#e0503c]">{err}</p>
+                )}
+
+                <button
+                  className="w-full rounded-xl bg-[#5b8cff] py-3 font-semibold text-white hover:bg-[#3f6fe0] transition disabled:opacity-60"
+                  disabled={twofaBusy || code.length < 6}
+                  aria-busy={twofaBusy}
+                >
+                  {twofaBusy ? t.twofaBusy : t.twofaBtn}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTwofa(null); setCode(''); setErr(null); }}
+                  className="w-full text-sm text-neutral-400 hover:text-white transition"
+                >
+                  {t.twofaBack}
+                </button>
+              </form>
+              <p className="mt-4 text-xs text-neutral-500 leading-relaxed">{t.twofaRecoveryHint}</p>
+            </>
           ) : (
             <>
               <h1 className="text-2xl font-bold">{creating ? t.titleCreate : t.titleLogin}</h1>
@@ -294,7 +378,15 @@ const L = {
     errExpired: 'Sesi kedaluwarsa — masuk pakai master password dulu',
     errBio: 'Gagal buka dengan biometrik',
     errLockedTpl: 'Terlalu banyak percobaan. Coba lagi dalam {m} menit.',
+    err2faInvalid: 'Kode salah',
     errGeneric: 'Gagal',
+    twofaTitle: 'Verifikasi dua langkah',
+    twofaSub: 'Masukkan 6 digit kode dari aplikasi authenticator kamu.',
+    twofaLabel: 'Kode 2FA',
+    twofaBtn: 'Verifikasi',
+    twofaBusy: 'Memverifikasi…',
+    twofaBack: '← Kembali',
+    twofaRecoveryHint: 'Kehilangan perangkat? Masukkan salah satu recovery code kamu di kolom ini.',
   },
   en: {
     loading: 'Loading…',
@@ -323,6 +415,14 @@ const L = {
     errExpired: 'Session expired — sign in with your master password first',
     errBio: 'Biometric unlock failed',
     errLockedTpl: 'Too many attempts. Try again in {m} minutes.',
+    err2faInvalid: 'Invalid code',
     errGeneric: 'Something went wrong',
+    twofaTitle: 'Two-step verification',
+    twofaSub: 'Enter the 6-digit code from your authenticator app.',
+    twofaLabel: '2FA code',
+    twofaBtn: 'Verify',
+    twofaBusy: 'Verifying…',
+    twofaBack: '← Back',
+    twofaRecoveryHint: 'Lost your device? Enter one of your recovery codes in this field instead.',
   },
 } as const;

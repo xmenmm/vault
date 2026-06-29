@@ -9,6 +9,7 @@ import { parseCsv, csvToLogins, toCsv } from '@/lib/csv';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { saveRows, loadRows, clearRows, type VaultRow } from '@/lib/offline';
 import { qrSupported, decodeQrFromImage, parseOtpauthSecret } from '@/lib/qr';
+import { TwoFactorCard } from '@/components/TwoFactorCard';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
 import { biometricAvailable, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/webauthn';
@@ -1652,6 +1653,7 @@ function SettingsView({
 
       <div className="panel-card" style={{ marginTop: 14 }}>
         <h3 className="pc-title">{t.setSecurityPrivacy}</h3>
+        <TwoFactorCard flash={flash} />
         {bioAvail && (
           <div className="kv">
             <span>
