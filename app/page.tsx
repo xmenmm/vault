@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { VaultPreview } from '@/components/VaultPreview';
 import { Reveal } from '@/components/Reveal';
+import { Logo } from '@/components/Logo';
 import { useLang } from '@/lib/i18n';
 
 export default function Landing() {
@@ -20,7 +21,7 @@ export default function Landing() {
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#05070c]/60 border-b border-white/[0.06]">
         <div className="mx-auto max-w-7xl flex items-center justify-between px-6 sm:px-10 h-16">
           <div className="font-extrabold text-lg tracking-tight">
-            🔐 my<span className="text-[#7aa2ff]">Vault</span>
+            <Logo accent="#7aa2ff" size={24} />
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm text-neutral-400">
             <a href="#features" className="link-underline hover:text-white transition">{t.nav.features}</a>
@@ -273,7 +274,7 @@ export default function Landing() {
       <footer className="relative border-t border-white/[0.06]">
         <div className="mx-auto max-w-7xl px-6 sm:px-10 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
           <div className="font-extrabold text-white">
-            🔐 my<span className="text-[#7aa2ff]">Vault</span>
+            <Logo accent="#7aa2ff" size={22} />
           </div>
           <div>{t.footer}</div>
         </div>

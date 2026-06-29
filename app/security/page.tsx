@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Reveal } from '@/components/Reveal';
 import { useLang } from '@/lib/i18n';
+import { Logo } from '@/components/Logo';
 
 export default function SecurityPage() {
   const [lang, setLang] = useLang();
@@ -16,7 +17,7 @@ export default function SecurityPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#05070c]/60 border-b border-white/[0.06]">
         <div className="mx-auto max-w-5xl flex items-center justify-between px-6 sm:px-10 h-16">
-          <Link href="/" className="font-extrabold text-lg tracking-tight">🔐 my<span className="text-[#7aa2ff]">Vault</span></Link>
+          <Link href="/" className="font-extrabold text-lg tracking-tight"><Logo accent="#7aa2ff" size={24} /></Link>
           <div className="flex items-center gap-3">
             <div className="flex items-center rounded-full border border-white/10 text-[11px] font-bold overflow-hidden">
               <button onClick={() => setLang('id')} className={`px-2.5 py-1.5 transition ${lang === 'id' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}>ID</button>
@@ -121,7 +122,7 @@ export default function SecurityPage() {
 
       <footer className="relative border-t border-white/[0.06]">
         <div className="mx-auto max-w-5xl px-6 sm:px-10 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-neutral-500">
-          <Link href="/" className="font-extrabold text-white">🔐 my<span className="text-[#7aa2ff]">Vault</span></Link>
+          <Link href="/" className="font-extrabold text-white"><Logo accent="#7aa2ff" size={22} /></Link>
           <div>{t.footer}</div>
         </div>
       </footer>

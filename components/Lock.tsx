@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { deriveKeys, importEncKey, type Keys } from '@/lib/crypto';
 import { VaultPreview } from '@/components/VaultPreview';
+import { Logo } from '@/components/Logo';
 import { biometricEnabled, unlockWithBiometric } from '@/lib/webauthn';
 import { useLang } from '@/lib/i18n';
 
@@ -192,7 +193,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-[#7c5cff]/15 blur-[120px]" />
 
         <Link href="/" className="relative z-10 font-extrabold text-lg tracking-tight w-fit">
-          🔐 my<span className="text-[#5b8cff]">Vault</span>
+          <Logo accent="#5b8cff" size={24} />
         </Link>
 
         <div className="relative z-0 flex-1 min-h-[300px] -my-2 flex items-center justify-center">
@@ -218,7 +219,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         <div className="pointer-events-none absolute top-1/3 right-0 h-72 w-72 rounded-full bg-[#5b8cff]/10 blur-[120px] md:hidden" />
         <div className="relative w-full max-w-sm">
           <Link href="/" className="md:hidden mb-8 inline-block font-extrabold text-lg">
-            🔐 my<span className="text-[#5b8cff]">Vault</span>
+            <Logo accent="#5b8cff" size={22} />
           </Link>
 
           {setup === null ? (

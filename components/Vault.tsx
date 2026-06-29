@@ -10,6 +10,7 @@ import { totpCode, totpRemaining } from '@/lib/totp';
 import { saveRows, loadRows, clearRows, type VaultRow } from '@/lib/offline';
 import { qrSupported, decodeQrFromImage, parseOtpauthSecret } from '@/lib/qr';
 import { TwoFactorCard } from '@/components/TwoFactorCard';
+import { Logo, BrandMark } from '@/components/Logo';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
 import { biometricAvailable, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/webauthn';
@@ -486,7 +487,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     <div className="shell">
       <aside className="side">
         <div className="side-brand">
-          🔐 my<span>Vault</span>
+          <Logo accent="var(--accent)" size={22} />
         </div>
         <button
           className="btn"
@@ -1164,7 +1165,7 @@ function Stat({ n, label, tone }: { n: number | string; label: string; tone?: 'w
 function EmptyVault({ t, onAdd, onNav }: { t: AppDict; onAdd: () => void; onNav: (v: View) => void }) {
   return (
     <div className="empty-onboard">
-      <div className="eo-icon">🔐</div>
+      <div className="eo-icon"><BrandMark size={52} /></div>
       <h2 className="eo-title">{t.eoTitle}</h2>
       <p className="eo-sub">{t.eoSub}</p>
       <div className="eo-actions">

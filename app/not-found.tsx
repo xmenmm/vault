@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useLang } from '@/lib/i18n';
+import { Logo } from '@/components/Logo';
 
 export default function NotFound() {
   const [lang] = useLang();
@@ -16,7 +17,7 @@ export default function NotFound() {
 
       <div className="relative text-center">
         <Link href="/" className="inline-block font-extrabold text-lg tracking-tight mb-10">
-          🔐 my<span className="text-[#7aa2ff]">Vault</span>
+          <Logo accent="#7aa2ff" size={24} />
         </Link>
         <div className="bg-clip-text text-transparent bg-gradient-to-r from-[#8fb0ff] via-[#a78bff] to-[#7c5cff] text-[6rem] md:text-[8rem] font-bold leading-none tracking-tight">
           {t.code}

@@ -378,7 +378,6 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
   display: flex; flex-direction: column; padding: 16px; position: sticky; top: 0; height: 100vh;
 }
 .side-brand { font-weight: 800; font-size: 18px; margin: 2px 2px 16px; }
-.side-brand span { color: var(--accent); }
 .side-nav { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; flex: 1; }
 .snav {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
