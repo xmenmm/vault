@@ -9,6 +9,10 @@ the browser. Built for Supabase + Vercel, usable from desktop and phone.
 - **Built-in 2FA / TOTP** (RFC 6238) — rotating codes per entry.
 - **Breach check** — HaveIBeenPwned via k-anonymity (only a 5-char hash prefix
   leaves the device).
+- **Change master password** — rotate it from Settings → Security. Every item is
+  re-encrypted in the browser under the new key, then the auth is rotated; the
+  server never sees plaintext or either key. The re-encrypted items are written in
+  one atomic upsert, so the vault can't be left half-rotated.
 - **Two-factor login (2FA)** — opt-in TOTP (Google Authenticator, Authy…) and/or
   **WhatsApp OTP** (Meta Cloud API), with one-time recovery codes. Server-enforced,
   so a stolen master password alone can't open the vault. Brute-force-throttled.

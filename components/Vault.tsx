@@ -10,6 +10,7 @@ import { totpCode, totpRemaining } from '@/lib/totp';
 import { saveRows, loadRows, clearRows, type VaultRow } from '@/lib/offline';
 import { qrSupported, decodeQrFromImage, parseOtpauthSecret } from '@/lib/qr';
 import { TwoFactorCard } from '@/components/TwoFactorCard';
+import { ChangePassword } from '@/components/ChangePassword';
 import { Logo, BrandMark } from '@/components/Logo';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
@@ -1654,6 +1655,7 @@ function SettingsView({
 
       <div className="panel-card" style={{ marginTop: 14 }}>
         <h3 className="pc-title">{t.setSecurityPrivacy}</h3>
+        <ChangePassword currentKeys={keys} flash={flash} />
         <TwoFactorCard flash={flash} />
         {bioAvail && (
           <div className="kv">
