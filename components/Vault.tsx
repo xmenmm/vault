@@ -8,6 +8,7 @@ import { pwnedCount } from '@/lib/breach';
 import { parseCsv, csvToLogins, toCsv } from '@/lib/csv';
 import { totpCode, totpRemaining } from '@/lib/totp';
 import { saveRows, loadRows, clearRows, type VaultRow } from '@/lib/offline';
+import { qrSupported, decodeQrFromImage, parseOtpauthSecret } from '@/lib/qr';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
 import { biometricAvailable, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/webauthn';
@@ -2106,8 +2107,27 @@ function ItemModal({
   const [busy, setBusy] = useState(false);
   const [opts, setOpts] = useState<GenOpts>({ length: 18, lower: true, upper: true, digit: true, symbol: true });
   const st = strength(f.password);
+  const qrInput = useRef<HTMLInputElement>(null);
+  const [qrMsg, setQrMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const canScanQr = qrSupported();
 
   const set = (k: keyof Fields, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  // Read a 2FA QR from a chosen image (on-device) and fill the TOTP secret.
+  async function onQrFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    setQrMsg(null);
+    const raw = await decodeQrFromImage(file);
+    const secret = raw ? parseOtpauthSecret(raw) : null;
+    if (secret) {
+      set('totp', secret);
+      setQrMsg({ ok: true, text: t.qrFilled });
+    } else {
+      setQrMsg({ ok: false, text: raw ? t.qrNoSecret : t.qrNoCode });
+    }
+  }
 
   // Esc closes the modal (matches the click-outside-to-close behaviour).
   useEffect(() => {
@@ -2214,7 +2234,19 @@ function ItemModal({
               <label className="fld">{t.fldWebsite}</label>
               <input className="input" value={f.url} onChange={(e) => set('url', e.target.value)} placeholder="facebook.com" />
 
-              <label className="fld">{t.fldTotp}</label>
+              <label className="fld" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span>{t.fldTotp}</span>
+                {canScanQr && (
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{ padding: '2px 10px', fontSize: 12 }}
+                    onClick={() => qrInput.current?.click()}
+                  >
+                    {t.qrScan}
+                  </button>
+                )}
+              </label>
               <input
                 className="input"
                 value={f.totp ?? ''}
@@ -2222,6 +2254,20 @@ function ItemModal({
                 placeholder={t.fldTotpPlaceholder}
                 style={{ fontFamily: 'ui-monospace, monospace' }}
               />
+              {canScanQr && (
+                <input
+                  ref={qrInput}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={onQrFile}
+                />
+              )}
+              {qrMsg && (
+                <p className="hint" style={{ color: qrMsg.ok ? 'var(--ok, #34d399)' : 'var(--danger, #f87171)', marginTop: 6 }}>
+                  {qrMsg.text}
+                </p>
+              )}
 
               {(f.passwordHistory?.length ?? 0) > 0 && (
                 <>
