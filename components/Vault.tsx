@@ -109,6 +109,10 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   const [cursor, setCursor] = useState(-1); // keyboard-highlighted row in the list
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [themePref, setThemePref] = useState<'system' | 'dark' | 'light'>('system');
+  // Breach scan (HIBP) results, lifted so the score + Overview can use them too.
+  // Keyed by password → how many breaches it appears in (only count>0 stored).
+  const [breaches, setBreaches] = useState<Map<string, number>>(new Map());
+  const [breachScan, setBreachScan] = useState<{ state: 'idle' | 'running' | 'done'; done: number; total: number }>({ state: 'idle', done: 0, total: 0 });
   // "Buka & login" terpandu — sequences copy-username → open-site → copy-password
   // across a tab switch (the only safe way to "auto-login" from a web app on HP).
   const [loginFlow, setLoginFlow] = useState<{ item: Item; step: 'opened' | 'ready' | 'done' } | null>(null);
@@ -174,6 +178,29 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     setFirstLoad(false);
     if (offline) flash(t.offlineMode);
   }, [keys.encKey, flash, t]);
+
+  // Check every unique password against HaveIBeenPwned (k-anonymity — only a
+  // 5-char hash prefix leaves the device). Results feed the score + Overview.
+  const runBreachScan = useCallback(async () => {
+    const uniq = new Map<string, true>();
+    for (const it of items) if (it.password) uniq.set(it.password, true);
+    const pws = [...uniq.keys()];
+    setBreachScan({ state: 'running', done: 0, total: pws.length });
+    const found = new Map<string, number>();
+    let done = 0;
+    for (const pw of pws) {
+      try {
+        const c = await pwnedCount(pw);
+        if (c > 0) found.set(pw, c);
+      } catch {
+        /* skip a failed lookup, keep going */
+      }
+      done++;
+      setBreachScan((s) => ({ ...s, done }));
+    }
+    setBreaches(found);
+    setBreachScan({ state: 'done', done, total: pws.length });
+  }, [items]);
 
   useEffect(() => {
     load();
@@ -561,7 +588,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         </div>
 
         {view === 'overview' && (
-          <OverviewView items={items} onNav={setView} onAdd={() => setEditing('new')} {...rowProps} />
+          <OverviewView items={items} onNav={setView} onAdd={() => setEditing('new')} breaches={breaches} {...rowProps} />
         )}
 
         {view === 'search' && <SearchView items={items} query={query} setQuery={setQuery} {...rowProps} />}
@@ -608,7 +635,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
           </div>
         )}
 
-        {view === 'security' && <SecurityView items={items} onEdit={(it) => setEditing(it)} />}
+        {view === 'security' && <SecurityView items={items} onEdit={(it) => setEditing(it)} breaches={breaches} breachScan={breachScan} onScan={runBreachScan} />}
         {view === 'generator' && <GeneratorView onCopy={copy} />}
         {view === 'backup' && <BackupView flash={flash} reload={load} encKey={keys.encKey} />}
         {view === 'settings' && (
@@ -705,8 +732,9 @@ function OverviewView({
   items,
   onNav,
   onAdd,
+  breaches,
   ...row
-}: { items: Item[]; onNav: (v: View) => void; onAdd: () => void } & RowProps) {
+}: { items: Item[]; onNav: (v: View) => void; onAdd: () => void; breaches: Map<string, number> } & RowProps) {
   const t = useAppT();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -732,11 +760,13 @@ function OverviewView({
   for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
   const weakList = items.filter((i) => i.password && i.password.length < 10);
   const reusedList = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1);
+  const breachedList = items.filter((i) => i.password && (breaches.get(i.password) || 0) > 0);
   const weak = weakList.length;
   const reused = reusedList.length;
+  const breached = breachedList.length;
   const noPw = items.filter((i) => typeOf(i) === 'login' && !i.password).length;
   // Each problem password counted once — same formula as the Keamanan screen.
-  const bad = new Set([...weakList, ...reusedList]).size;
+  const bad = new Set([...weakList, ...reusedList, ...breachedList]).size;
   const score = withPw ? Math.round(((withPw - bad) / withPw) * 100) : 100;
   // Genuinely most-recently-updated, not just API order.
   const recent = [...items]
@@ -747,6 +777,8 @@ function OverviewView({
   const timeStr = now.toLocaleTimeString(t.localeTag, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   const attention: { label: string; n: number; hint: string; tone: string }[] = [
+    // Breached is the most severe — show it first, but only once a scan has found any.
+    ...(breached ? [{ label: t.attnBreached, n: breached, hint: t.attnBreachedHint, tone: 'warn' }] : []),
     { label: t.attnWeak, n: weak, hint: t.attnWeakHint, tone: weak ? 'warn' : 'ok' },
     { label: t.attnReused, n: reused, hint: t.attnReusedHint, tone: reused ? 'warn' : 'ok' },
     { label: t.attnNo2fa, n: Math.max(0, loginCount - withTotp), hint: t.attnNo2faHint, tone: 'muted' },
@@ -863,13 +895,26 @@ const strengthLabels = (t: AppDict): string[] => [
   t.strengthVeryWeak, t.strengthWeak, t.strengthMedium, t.strengthStrong, t.strengthVeryStrong,
 ];
 
-function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => void }) {
+function SecurityView({
+  items,
+  onEdit,
+  breaches,
+  breachScan,
+  onScan,
+}: {
+  items: Item[];
+  onEdit: (it: Item) => void;
+  breaches: Map<string, number>;
+  breachScan: { state: 'idle' | 'running' | 'done'; done: number; total: number };
+  onScan: () => void;
+}) {
   const t = useAppT();
   const m = useMemo(() => {
     const pwCount = new Map<string, number>();
     for (const i of items) if (i.password) pwCount.set(i.password, (pwCount.get(i.password) || 0) + 1);
     const weak = items.filter((i) => i.password && i.password.length < 10);
     const reused = items.filter((i) => i.password && (pwCount.get(i.password) || 0) > 1);
+    const breached = items.filter((i) => i.password && (breaches.get(i.password) || 0) > 0);
     // Only login items are expected to have a password — don't flag cards/notes.
     const noPw = items.filter((i) => typeOf(i) === 'login' && !i.password);
     const withPw = items.filter((i) => !!i.password).length;
@@ -887,12 +932,14 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
     const dist = [0, 0, 0, 0, 0];
     for (const i of items) if (i.password) dist[strength(i.password).score]++;
     const total = items.length;
-    // Count each problem password once (a weak+reused password is one bad item).
+    // Count each problem password once. A breached password is the worst kind, so
+    // it counts against the score too (alongside weak / reused).
+    const bad = new Set([...weak, ...reused, ...breached]).size;
     const score = withPw
-      ? Math.max(0, Math.min(100, Math.round(((withPw - flagged.length) / withPw) * 100)))
+      ? Math.max(0, Math.min(100, Math.round(((withPw - bad) / withPw) * 100)))
       : 100;
-    return { total, weak, reused, noPw, withPw, loginCount, withTotp, flagged, stale, dist, score };
-  }, [items]);
+    return { total, weak, reused, breached, noPw, withPw, loginCount, withTotp, flagged, stale, dist, score };
+  }, [items, breaches]);
 
   const { total, weak, reused, noPw, flagged } = m;
   const scoreColor = m.score >= 80 ? 'var(--ok)' : m.score >= 50 ? '#e0a13c' : 'var(--danger)';
@@ -900,37 +947,10 @@ function SecurityView({ items, onEdit }: { items: Item[]; onEdit: (it: Item) => 
   const totpPct = m.loginCount ? Math.round((m.withTotp / m.loginCount) * 100) : 0;
   const distMax = Math.max(1, ...m.dist);
 
-  const [scan, setScan] = useState<{
-    state: 'idle' | 'running' | 'done';
-    done: number;
-    total: number;
-    breached: { item: Item; count: number }[];
-  }>({ state: 'idle', done: 0, total: 0, breached: [] });
-
-  async function runScan() {
-    // Dedupe by password so identical logins are only one network lookup.
-    const uniq = new Map<string, Item[]>();
-    for (const it of items) if (it.password) {
-      const a = uniq.get(it.password) || [];
-      a.push(it);
-      uniq.set(it.password, a);
-    }
-    const entries = [...uniq.entries()];
-    setScan({ state: 'running', done: 0, total: entries.length, breached: [] });
-    const breached: { item: Item; count: number }[] = [];
-    let done = 0;
-    for (const [pw, its] of entries) {
-      try {
-        const c = await pwnedCount(pw);
-        if (c > 0) for (const it of its) breached.push({ item: it, count: c });
-      } catch {
-        /* skip a failed lookup, keep going */
-      }
-      done++;
-      setScan((s) => ({ ...s, done }));
-    }
-    setScan({ state: 'done', done, total: entries.length, breached });
-  }
+  // Breached items (with counts) derived from the lifted scan results.
+  const breachedItems = m.breached.map((item) => ({ item, count: breaches.get(item.password) || 0 }));
+  const scan = { state: breachScan.state, done: breachScan.done, total: breachScan.total, breached: breachedItems };
+  const runScan = onScan;
 
   return (
     <div className="wrap">
