@@ -78,7 +78,9 @@ export function csvToLogins(rows: string[][]): CsvLogin[] {
     const url = get(urli);
     const title = get(ti) || url || username;
     if (!title && !username && !password) continue; // skip junk rows
-    out.push({ title: title || '(tanpa judul)', username, password, url, notes: get(ni) });
+    // Leave title empty if there's nothing — the UI renders a localized
+    // "(no title)" at display time, so no language leaks into stored data.
+    out.push({ title, username, password, url, notes: get(ni) });
   }
   return out;
 }

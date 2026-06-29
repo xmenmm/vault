@@ -249,14 +249,20 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
   async function deleteAll() {
     if (!window.confirm(t.confirmDeleteAll)) return;
+    let failed = 0;
     for (const it of items) {
-      await fetch('/api/vault', {
-        method: 'DELETE',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id: it.id }),
-      });
+      try {
+        const res = await fetch('/api/vault', {
+          method: 'DELETE',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: it.id }),
+        });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
     }
-    flash(t.allDeleted);
+    flash(failed ? t.someDeleteFailed : t.allDeleted);
     load();
   }
 
@@ -394,14 +400,20 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   async function bulkDelete() {
     if (!selected.size) return;
     if (!window.confirm(`${t.confirmBulkDeletePrefix} ${selected.size} ${t.confirmBulkDeleteSuffix}`)) return;
+    let failed = 0;
     for (const id of selected) {
-      await fetch('/api/vault', {
-        method: 'DELETE',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
+      try {
+        const res = await fetch('/api/vault', {
+          method: 'DELETE',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
     }
-    flash(`${selected.size} ${t.bulkDeletedSuffix}`);
+    flash(failed ? t.someDeleteFailed : `${selected.size} ${t.bulkDeletedSuffix}`);
     exitSelect();
     load();
   }
@@ -670,6 +682,15 @@ function OverviewView({
     const t = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(t);
   }, []);
+
+  // Empty vault → show the welcome/onboarding instead of an all-zero dashboard.
+  if (items.length === 0) {
+    return (
+      <div className="wrap">
+        <EmptyVault t={t} onAdd={onAdd} onNav={onNav} />
+      </div>
+    );
+  }
 
   const fav = items.filter((i) => i.favorite).length;
   const cats = new Set(items.filter((i) => i.category.trim()).map((i) => i.category.trim())).size;
@@ -1139,7 +1160,10 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
 
   const bits = mode === 'phrase' ? passphraseEntropy(pOpts) : passwordEntropy(opts);
   const st = strengthFromBits(bits);
-  const crack = crackTimeLabel(bits);
+  const crack = crackTimeLabel(bits, {
+    instant: t.ctInstant, sec: t.ctSeconds, min: t.ctMinutes, hr: t.ctHours, day: t.ctDays,
+    mon: t.ctMonths, yr: t.ctYears, century: t.ctCenturies, thousandsC: t.ctThousandsCenturies, millionsC: t.ctMillionsCenturies,
+  });
 
   const sel = {
     padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border)',
@@ -1163,7 +1187,7 @@ function GeneratorView({ onCopy }: { onCopy: (t: string, l: string) => void }) {
           <>
             <div className="strength" style={{ marginTop: 12 }}>
               <div className="strength-bar"><span style={{ width: `${(st.score + 1) * 20}%`, background: st.color }} /></div>
-              <span className="strength-label" style={{ color: st.color }}>{st.label}</span>
+              <span className="strength-label" style={{ color: st.color }}>{strengthLabels(t)[st.score]}</span>
             </div>
             <div className="gen-meta">
               <span>{t.genCrackPrefix} <b style={{ color: st.color }}>{crack}</b> {t.genCrackSuffix}</span>
@@ -1516,7 +1540,8 @@ function SettingsView({
       setBioOn(true);
       flash(t.bioActive);
     } catch (e: unknown) {
-      flash(e instanceof Error ? e.message : t.bioEnableFailed);
+      void e;
+      flash(t.bioEnableFailed); // webauthn errors aren't localized — show a clear localized message
     } finally {
       setBioBusy(false);
     }
@@ -2114,14 +2139,14 @@ function ItemModal({
             value={f.title}
             onChange={(e) => set('title', e.target.value)}
             placeholder={
-              typeOf(f) === 'card' ? 'Kartu BCA' : typeOf(f) === 'note' ? 'Catatan WiFi' : typeOf(f) === 'identity' ? 'KTP' : 'Facebook'
+              typeOf(f) === 'card' ? t.phTitleCard : typeOf(f) === 'note' ? t.phTitleNote : typeOf(f) === 'identity' ? t.phTitleIdentity : t.phTitleLogin
             }
           />
 
           {typeOf(f) === 'login' && (
             <>
               <label className="fld">{t.fldUsername}</label>
-              <input className="input" value={f.username} onChange={(e) => set('username', e.target.value)} placeholder="kamu@email.com" />
+              <input className="input" value={f.username} onChange={(e) => set('username', e.target.value)} placeholder={t.phEmail} />
 
               <label className="fld">{t.fldPassword}</label>
               <div className="row2">
@@ -2131,7 +2156,7 @@ function ItemModal({
               {f.password && (
                 <div className="strength" style={{ margin: '-4px 0 12px' }}>
                   <div className="strength-bar"><span style={{ width: `${(st.score + 1) * 20}%`, background: st.color }} /></div>
-                  <span className="strength-label" style={{ color: st.color }}>{st.label}</span>
+                  <span className="strength-label" style={{ color: st.color }}>{strengthLabels(t)[st.score]}</span>
                 </div>
               )}
               {showGen && (
@@ -2196,7 +2221,7 @@ function ItemModal({
           {typeOf(f) === 'card' && (
             <>
               <label className="fld">{t.fldCardHolder}</label>
-              <input className="input" value={f.cardHolder ?? ''} onChange={(e) => set('cardHolder', e.target.value)} placeholder="NAMA LENGKAP" />
+              <input className="input" value={f.cardHolder ?? ''} onChange={(e) => set('cardHolder', e.target.value)} placeholder={t.phCardHolder} />
 
               <label className="fld">{t.fldCardNumber}</label>
               <input
@@ -2236,7 +2261,7 @@ function ItemModal({
               />
 
               <label className="fld">{t.fldEmail}</label>
-              <input className="input" value={f.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="kamu@email.com" />
+              <input className="input" value={f.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder={t.phEmail} />
 
               <label className="fld">{t.fldPhone}</label>
               <input className="input" value={f.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="08xxxxxxxxxx" />
@@ -2247,7 +2272,7 @@ function ItemModal({
           )}
 
           <label className="fld">{t.fldCategory}</label>
-          <input className="input" value={f.category} onChange={(e) => set('category', e.target.value)} placeholder="Sosial" />
+          <input className="input" value={f.category} onChange={(e) => set('category', e.target.value)} placeholder={t.phCategory} />
 
           <label className="fld">{t.fldNotes}</label>
           <textarea className="input" rows={typeOf(f) === 'note' ? 6 : 3} value={f.notes} onChange={(e) => set('notes', e.target.value)} style={{ resize: 'vertical' }} />

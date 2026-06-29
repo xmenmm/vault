@@ -14,6 +14,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [bioOn, setBioOn] = useState(false);
@@ -175,15 +176,25 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
                 <div>
                   <label className={label}>{t.labelPw}</label>
-                  <input
-                    className={field}
-                    type="password"
-                    autoComplete={creating ? 'new-password' : 'current-password'}
-                    required
-                    value={pw}
-                    onChange={(e) => setPw(e.target.value)}
-                    placeholder="••••••••"
-                  />
+                  <div className="relative">
+                    <input
+                      className={field}
+                      style={{ paddingRight: 64 }}
+                      type={showPw ? 'text' : 'password'}
+                      autoComplete={creating ? 'new-password' : 'current-password'}
+                      required
+                      value={pw}
+                      onChange={(e) => setPw(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-400 hover:text-white transition"
+                    >
+                      {showPw ? t.hide : t.show}
+                    </button>
+                  </div>
                 </div>
 
                 {creating && (
@@ -241,6 +252,8 @@ const L = {
     labelId: 'ID / Username',
     labelPw: 'Master password',
     labelPw2: 'Konfirmasi master password',
+    show: 'Lihat',
+    hide: 'Tutup',
     btnBusy: 'Memproses…',
     btnCreate: 'Buat brankas',
     btnOpen: 'Buka',
@@ -267,6 +280,8 @@ const L = {
     labelId: 'ID / Username',
     labelPw: 'Master password',
     labelPw2: 'Confirm master password',
+    show: 'Show',
+    hide: 'Hide',
     btnBusy: 'Processing…',
     btnCreate: 'Create vault',
     btnOpen: 'Unlock',

@@ -47,32 +47,38 @@ export function entropyBits(pw: string): number {
   return Math.round(pw.length * Math.log2(poolSize(pw)));
 }
 
+// Localized unit words for crackTimeLabel (passed in from the dictionary).
+export type CrackUnits = {
+  instant: string; sec: string; min: string; hr: string; day: string; mon: string; yr: string;
+  century: string; thousandsC: string; millionsC: string;
+};
+
 // Human-readable "time to crack" for a given entropy, assuming a fast offline
 // attacker at 1e11 guesses/sec and half the keyspace searched on average.
-export function crackTimeLabel(bits: number): string {
-  if (bits <= 0) return 'instan';
+export function crackTimeLabel(bits: number, u: CrackUnits): string {
+  if (bits <= 0) return u.instant;
   const seconds = Math.pow(2, bits) / 2 / 1e11;
-  if (seconds < 1) return 'instan';
+  if (seconds < 1) return u.instant;
 
   const YEAR = 31536000;
   if (seconds >= YEAR * 100) {
     const centuries = seconds / (YEAR * 100);
-    if (centuries >= 1e6) return 'jutaan abad';
-    if (centuries >= 1000) return 'ribuan abad';
-    return `${Math.round(centuries)} abad`;
+    if (centuries >= 1e6) return u.millionsC;
+    if (centuries >= 1000) return u.thousandsC;
+    return `${Math.round(centuries)} ${u.century}`;
   }
   // [secondsPerUnit, name], ascending — pick the largest unit that fits.
   const units: [number, string][] = [
-    [1, 'detik'],
-    [60, 'menit'],
-    [3600, 'jam'],
-    [86400, 'hari'],
-    [2592000, 'bulan'],
-    [YEAR, 'tahun'],
+    [1, u.sec],
+    [60, u.min],
+    [3600, u.hr],
+    [86400, u.day],
+    [2592000, u.mon],
+    [YEAR, u.yr],
   ];
   for (let i = units.length - 1; i >= 0; i--) {
     const [sec, name] = units[i];
     if (seconds >= sec) return `${Math.max(1, Math.round(seconds / sec))} ${name}`;
   }
-  return 'instan';
+  return u.instant;
 }
