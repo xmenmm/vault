@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authClient } from '@/lib/supabase-admin';
 import { signSession, SESSION_COOKIE, sessionCookieOptions, signPending2fa } from '@/lib/session';
 import { throttleKey, throttleStatus, recordFail, recordSuccess, clientIp } from '@/lib/throttle';
-import { getTwoFa } from '@/lib/twofa-server';
+import { getTwoFaRow, isEnabled } from '@/lib/twofa-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,14 +53,18 @@ export async function POST(req: NextRequest) {
   // Password is correct. If this user has 2FA enabled, withhold the session and
   // ask for the second factor. Fail closed on a real lookup error (don't bypass
   // the gate); a missing table just means the feature is off.
-  let twofa;
+  let row;
   try {
-    twofa = await getTwoFa(data.user.id);
+    row = await getTwoFaRow(data.user.id);
   } catch {
     return NextResponse.json({ error: 'auth temporarily unavailable' }, { status: 503 });
   }
-  if (twofa) {
-    return NextResponse.json({ need2fa: true, pending: signPending2fa(data.user.id) });
+  if (isEnabled(row)) {
+    return NextResponse.json({
+      need2fa: true,
+      pending: signPending2fa(data.user.id),
+      methods: { totp: !!row!.secret, whatsapp: !!row!.wa_phone && row!.wa_verified },
+    });
   }
 
   const res = NextResponse.json({ ok: true });

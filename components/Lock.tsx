@@ -21,9 +21,11 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
   const [bioBusy, setBioBusy] = useState(false);
   // After the password (or biometric) verifies, if the account has 2FA we hold
   // the derived keys here and ask for the code before unlocking.
-  const [twofa, setTwofa] = useState<{ pending: string; keys: Keys } | null>(null);
+  const [twofa, setTwofa] = useState<{ pending: string; keys: Keys; methods?: { totp: boolean; whatsapp: boolean } } | null>(null);
   const [code, setCode] = useState('');
   const [twofaBusy, setTwofaBusy] = useState(false);
+  const [waSentTo, setWaSentTo] = useState<string | null>(null);
+  const [waSending, setWaSending] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/status')
@@ -57,12 +59,13 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         body: JSON.stringify({ email, authHash }),
       });
       if (!loginRes.ok) throw new Error(await loginError(loginRes, t.errExpired));
-      const ld = (await loginRes.json().catch(() => ({}))) as { need2fa?: boolean; pending?: string };
+      const ld = (await loginRes.json().catch(() => ({}))) as { need2fa?: boolean; pending?: string; methods?: { totp: boolean; whatsapp: boolean } };
       const encKey = await importEncKey(encKeyB64);
       try { localStorage.setItem('vault-email', email); } catch { /* ignore */ }
       if (ld.need2fa && ld.pending) {
         setCode('');
-        setTwofa({ pending: ld.pending, keys: { encKey, authHash } });
+        setWaSentTo(null);
+        setTwofa({ pending: ld.pending, keys: { encKey, authHash }, methods: ld.methods });
         return;
       }
       onUnlock({ encKey, authHash });
@@ -91,6 +94,27 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
       setErr(err instanceof Error ? err.message : t.errGeneric);
     } finally {
       setTwofaBusy(false);
+    }
+  }
+
+  // Ask the server to send a fresh OTP to the enrolled WhatsApp number.
+  async function sendWa() {
+    if (!twofa || waSending) return;
+    setErr(null);
+    setWaSending(true);
+    try {
+      const res = await fetch('/api/auth/2fa/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pending: twofa.pending }),
+      });
+      const d = (await res.json().catch(() => ({}))) as { to?: string };
+      if (!res.ok) throw new Error(await loginError(res, t.errGeneric));
+      setWaSentTo(d.to ?? '');
+    } catch (err: unknown) {
+      setErr(err instanceof Error ? err.message : t.errGeneric);
+    } finally {
+      setWaSending(false);
     }
   }
 
@@ -134,10 +158,11 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
       // Remember the email (the username/salt, not secret) so biometric unlock
       // can refresh the session later.
       try { localStorage.setItem('vault-email', cleanEmail); } catch { /* ignore */ }
-      const ld = (await loginRes.json().catch(() => ({}))) as { need2fa?: boolean; pending?: string };
+      const ld = (await loginRes.json().catch(() => ({}))) as { need2fa?: boolean; pending?: string; methods?: { totp: boolean; whatsapp: boolean } };
       if (ld.need2fa && ld.pending) {
         setCode('');
-        setTwofa({ pending: ld.pending, keys });
+        setWaSentTo(null);
+        setTwofa({ pending: ld.pending, keys, methods: ld.methods });
         return;
       }
       onUnlock(keys);
@@ -201,7 +226,30 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
           ) : twofa ? (
             <>
               <h1 className="text-2xl font-bold">{t.twofaTitle}</h1>
-              <p className="mt-1.5 text-neutral-400 text-sm">{t.twofaSub}</p>
+              <p className="mt-1.5 text-neutral-400 text-sm">
+                {twofa.methods?.whatsapp && !twofa.methods?.totp ? t.twofaSubWa : t.twofaSub}
+              </p>
+
+              {twofa.methods?.whatsapp && (
+                <div className="mt-5">
+                  <button
+                    type="button"
+                    onClick={sendWa}
+                    disabled={waSending}
+                    aria-busy={waSending}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 font-semibold text-white hover:bg-white/10 transition disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <span aria-hidden="true">💬</span>
+                    {waSending ? t.twofaWaSending : waSentTo ? t.twofaWaResend : t.twofaWaSend}
+                  </button>
+                  {waSentTo !== null && (
+                    <p className="mt-2 text-xs text-[#2bb079]">
+                      {t.twofaWaSentTpl.replace('{to}', waSentTo || '')}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <form onSubmit={submit2fa} className="mt-6 space-y-4">
                 <div>
                   <label htmlFor="vault-2fa" className={label}>{t.twofaLabel}</label>
@@ -382,10 +430,15 @@ const L = {
     errGeneric: 'Gagal',
     twofaTitle: 'Verifikasi dua langkah',
     twofaSub: 'Masukkan 6 digit kode dari aplikasi authenticator kamu.',
+    twofaSubWa: 'Kirim kode ke WhatsApp kamu, lalu masukkan 6 digit kodenya.',
     twofaLabel: 'Kode 2FA',
     twofaBtn: 'Verifikasi',
     twofaBusy: 'Memverifikasi…',
     twofaBack: '← Kembali',
+    twofaWaSend: 'Kirim kode ke WhatsApp',
+    twofaWaResend: 'Kirim ulang kode',
+    twofaWaSending: 'Mengirim…',
+    twofaWaSentTpl: 'Kode dikirim ke WhatsApp {to}',
     twofaRecoveryHint: 'Kehilangan perangkat? Masukkan salah satu recovery code kamu di kolom ini.',
   },
   en: {
@@ -419,10 +472,15 @@ const L = {
     errGeneric: 'Something went wrong',
     twofaTitle: 'Two-step verification',
     twofaSub: 'Enter the 6-digit code from your authenticator app.',
+    twofaSubWa: 'Send a code to your WhatsApp, then enter the 6 digits.',
     twofaLabel: '2FA code',
     twofaBtn: 'Verify',
     twofaBusy: 'Verifying…',
     twofaBack: '← Back',
+    twofaWaSend: 'Send code to WhatsApp',
+    twofaWaResend: 'Resend code',
+    twofaWaSending: 'Sending…',
+    twofaWaSentTpl: 'Code sent to WhatsApp {to}',
     twofaRecoveryHint: 'Lost your device? Enter one of your recovery codes in this field instead.',
   },
 } as const;

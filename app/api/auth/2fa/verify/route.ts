@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signSession, SESSION_COOKIE, sessionCookieOptions, verifyPending2fa } from '@/lib/session';
 import { throttleKey, throttleStatus, recordFail, recordSuccess, clientIp } from '@/lib/throttle';
-import { getTwoFa, checkTwoFaCode } from '@/lib/twofa-server';
+import { getTwoFaRow, isEnabled, checkTwoFaCode } from '@/lib/twofa-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,16 +31,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let twofa;
+  let row;
   try {
-    twofa = await getTwoFa(userId);
+    row = await getTwoFaRow(userId);
   } catch {
     return NextResponse.json({ error: 'auth temporarily unavailable' }, { status: 503 });
   }
 
   // 2FA was disabled between the two steps — the password already passed, so
   // just grant the session.
-  if (!twofa) {
+  if (!isEnabled(row)) {
     await recordSuccess(key);
     const ok = NextResponse.json({ ok: true });
     ok.cookies.set(SESSION_COOKIE, signSession(userId), sessionCookieOptions());
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   let accepted = false;
   try {
-    accepted = await checkTwoFaCode(userId, twofa, code);
+    accepted = await checkTwoFaCode(userId, row!, code);
   } catch {
     return NextResponse.json({ error: 'auth temporarily unavailable' }, { status: 503 });
   }

@@ -47,11 +47,16 @@ create table if not exists public.login_throttle (
 );
 alter table public.login_throttle enable row level security;
 
--- ── Two-factor authentication (opt-in TOTP for login) ──
+-- ── Two-factor authentication (opt-in TOTP and/or WhatsApp OTP for login) ──
 create table if not exists public.user_2fa (
-  owner      uuid primary key references auth.users(id) on delete cascade,
-  secret     text not null,
-  recovery   jsonb not null default '[]'::jsonb,
-  created_at timestamptz not null default now()
+  owner        uuid primary key references auth.users(id) on delete cascade,
+  secret       text,                                  -- base32 TOTP secret (nullable)
+  recovery     jsonb not null default '[]'::jsonb,
+  wa_phone     text,                                  -- WhatsApp number, digits only
+  wa_verified  boolean not null default false,
+  wa_code_hash text,
+  wa_code_exp  timestamptz,
+  wa_sent_at   timestamptz,
+  created_at   timestamptz not null default now()
 );
 alter table public.user_2fa enable row level security;

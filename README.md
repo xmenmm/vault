@@ -9,9 +9,9 @@ the browser. Built for Supabase + Vercel, usable from desktop and phone.
 - **Built-in 2FA / TOTP** (RFC 6238) — rotating codes per entry.
 - **Breach check** — HaveIBeenPwned via k-anonymity (only a 5-char hash prefix
   leaves the device).
-- **Two-factor login (2FA)** — opt-in TOTP (Google Authenticator, Authy…) with
-  one-time recovery codes. Server-enforced, so a stolen master password alone
-  can't open the vault. Brute-force-throttled.
+- **Two-factor login (2FA)** — opt-in TOTP (Google Authenticator, Authy…) and/or
+  **WhatsApp OTP** (Meta Cloud API), with one-time recovery codes. Server-enforced,
+  so a stolen master password alone can't open the vault. Brute-force-throttled.
 - **Biometric unlock** — WebAuthn + PRF; the master password always still works.
 - **Generator** — random passwords or memorable passphrases, with an entropy /
   time-to-crack estimate.
@@ -47,12 +47,20 @@ security contact is published at **`/.well-known/security.txt`** (RFC 9116).
   in-memory out of the box; run `supabase/throttle.sql` to make it durable across
   serverless instances. It fails **open** (a throttle-store outage never locks you
   out of your own vault).
-- **Two-factor authentication (opt-in).** Enable TOTP in Settings → Security. The
-  secret is generated on-device, shown as a QR, and only stored server-side once
-  you confirm a code; the server then *withholds the session* on every login until
-  a valid TOTP (or one-time recovery code) is supplied. It guards access to the
+- **Two-factor authentication (opt-in).** Enable TOTP and/or WhatsApp in Settings →
+  Security. Secrets are generated on-device and only stored server-side once you
+  confirm a code; the server then *withholds the session* on every login until a
+  valid code (or one-time recovery code) is supplied. It guards access to the
   ciphertext — the second factor is not part of the encryption key. Run
   `supabase/twofa.sql` to create the table; until then 2FA is simply unavailable.
+  - **WhatsApp delivery** is optional and needs a Meta WhatsApp Cloud API setup:
+    create a Meta app → add WhatsApp → register a sender number → create an
+    **authentication**-category message template (one body variable = the code, plus
+    a copy-code button) and get it approved → set `WHATSAPP_PHONE_NUMBER_ID`,
+    `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_OTP_TEMPLATE`, `WHATSAPP_OTP_LANG` in Vercel
+    (see `.env.example`). Without these, the WhatsApp option is hidden and TOTP still
+    works. Note: WhatsApp/SMS OTP is weaker than an authenticator (SIM-swap, account
+    takeover) — offer it for convenience, prefer TOTP for security.
 - **There is no password reset.** Lose the master password → the data is gone.
   That's the point of zero-knowledge.
 

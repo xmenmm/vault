@@ -1052,6 +1052,7 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 .item.cursored { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
 /* ── Two-factor (2FA) settings ── */
+.tf-method { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .tf-enroll { border-top: 1px solid var(--border); padding-top: 12px; }
 .tf-steps { margin: 0 0 12px; padding-left: 0; list-style: none; display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
 .tf-qr { background: #fff; padding: 10px; border-radius: 12px; width: fit-content; }

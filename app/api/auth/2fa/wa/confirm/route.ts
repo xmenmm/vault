@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { currentUserId } from '@/lib/auth';
-import { getTwoFaRow, isEnabled, checkTwoFaCode, deleteTwoFa } from '@/lib/twofa-server';
+import { getTwoFaRow, confirmWaEnroll } from '@/lib/twofa-server';
 
 export const dynamic = 'force-dynamic';
 
-// Turn off ALL 2FA (TOTP + WhatsApp). Requires a current code, so a hijacked
-// session alone can't remove the second factor.
+// Finish WhatsApp enrollment: verify the test code, mark the number verified,
+// and (if this is the first second factor) return one-time recovery codes.
 export async function POST(req: NextRequest) {
   const owner = await currentUserId();
   if (!owner) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'bad request' }, { status: 400 });
   }
-  const code = (body.code ?? '').trim();
 
   let row;
   try {
@@ -24,20 +23,16 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'unavailable' }, { status: 503 });
   }
-  if (!isEnabled(row)) return NextResponse.json({ ok: true }); // already off
+  if (!row || !row.wa_phone) {
+    return NextResponse.json({ error: 'no pending enrollment' }, { status: 400 });
+  }
 
-  let accepted = false;
+  let result;
   try {
-    accepted = await checkTwoFaCode(owner, row!, code);
+    result = await confirmWaEnroll(owner, row, (body.code ?? '').trim());
   } catch {
     return NextResponse.json({ error: 'unavailable' }, { status: 503 });
   }
-  if (!accepted) return NextResponse.json({ error: 'invalid code' }, { status: 401 });
-
-  try {
-    await deleteTwoFa(owner);
-  } catch {
-    return NextResponse.json({ error: 'unavailable' }, { status: 503 });
-  }
-  return NextResponse.json({ ok: true });
+  if (!result.ok) return NextResponse.json({ error: 'invalid code' }, { status: 400 });
+  return NextResponse.json({ ok: true, recovery: result.recovery ?? null });
 }
