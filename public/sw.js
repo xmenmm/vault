@@ -3,7 +3,7 @@
    (encrypted vault data stays network-only) or cross-origin requests (e.g. the
    HaveIBeenPwned breach API), so nothing sensitive is written to the cache. */
 
-const CACHE = 'myvault-v1';
+const CACHE = 'myvault-v3';
 const SHELL = ['/app', '/login', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
