@@ -1050,6 +1050,14 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 /* ── Keyboard-highlighted list row ── */
 .item.cursored { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
+/* ── Encrypted attachments ── */
+.att { margin-top: 16px; }
+.att-list { display: flex; flex-direction: column; gap: 6px; }
+.att-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+.att-ic { flex: none; }
+.att-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+.att-size { flex: none; color: var(--muted); font-size: 12px; }
+
 /* ── Two-factor (2FA) settings ── */
 .tf-method { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .tf-enroll { border-top: 1px solid var(--border); padding-top: 12px; }

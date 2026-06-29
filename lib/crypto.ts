@@ -112,3 +112,22 @@ export async function decryptStr(encKey: CryptoKey, payload: string): Promise<st
   );
   return dec.decode(pt);
 }
+
+// Encrypt raw bytes (e.g. a file) → "iv:ciphertext" (both base64). Encrypting the
+// bytes directly avoids the double-base64 blow-up of stringifying first.
+export async function encryptBytes(encKey: CryptoKey, bytes: Uint8Array): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: buf(iv) }, encKey, buf(bytes));
+  return b64(iv) + ':' + b64(new Uint8Array(ct));
+}
+
+// Decrypt "iv:ciphertext" → raw bytes. Throws if the key is wrong / tampered.
+export async function decryptBytes(encKey: CryptoKey, payload: string): Promise<Uint8Array> {
+  const [ivB, ctB] = payload.split(':');
+  const pt = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: buf(fromB64(ivB)) },
+    encKey,
+    buf(fromB64(ctB))
+  );
+  return new Uint8Array(pt);
+}

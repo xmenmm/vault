@@ -11,6 +11,7 @@ import { saveRows, loadRows, clearRows, type VaultRow } from '@/lib/offline';
 import { qrSupported, decodeQrFromImage, parseOtpauthSecret } from '@/lib/qr';
 import { TwoFactorCard } from '@/components/TwoFactorCard';
 import { ChangePassword } from '@/components/ChangePassword';
+import { Attachments } from '@/components/Attachments';
 import { Logo, BrandMark } from '@/components/Logo';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
@@ -649,6 +650,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
           initial={editing === 'new' ? EMPTY : editing}
           id={editing === 'new' ? null : editing.id}
           meta={editing === 'new' ? undefined : { createdAt: editing.createdAt, updatedAt: editing.updatedAt }}
+          encKey={keys.encKey}
           onClose={() => setEditing(null)}
           onSave={save}
         />
@@ -2131,12 +2133,14 @@ function ItemModal({
   initial,
   id,
   meta,
+  encKey,
   onClose,
   onSave,
 }: {
   initial: Fields;
   id: string | null;
   meta?: { createdAt?: string; updatedAt?: string };
+  encKey: CryptoKey;
   onClose: () => void;
   onSave: (f: Fields, id: string | null) => Promise<boolean>;
 }) {
@@ -2413,6 +2417,12 @@ function ItemModal({
           >
             {t.addField}
           </button>
+
+          {id ? (
+            <Attachments itemId={id} encKey={encKey} />
+          ) : (
+            <p className="hint" style={{ color: 'var(--muted)', marginTop: 14 }}>📎 {t.attSaveFirst}</p>
+          )}
 
           {meta?.updatedAt && (
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '14px 0 0', textAlign: 'right' }}>

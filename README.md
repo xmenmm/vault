@@ -9,6 +9,10 @@ the browser. Built for Supabase + Vercel, usable from desktop and phone.
 - **Built-in 2FA / TOTP** (RFC 6238) — rotating codes per entry.
 - **Breach check** — HaveIBeenPwned via k-anonymity (only a 5-char hash prefix
   leaves the device).
+- **Encrypted attachments** — store files per item (ID scans, recovery codes,
+  `.env`/key files…). Each file's bytes and filename are AES-encrypted in the
+  browser before upload; the server stores ciphertext only. Run
+  `supabase/attachments.sql` to enable (capped at 2.5 MB/file).
 - **Change master password** — rotate it from Settings → Security. Every item is
   re-encrypted in the browser under the new key, then the auth is rotated; the
   server never sees plaintext or either key. The re-encrypted items are written in

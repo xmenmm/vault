@@ -47,6 +47,19 @@ create table if not exists public.login_throttle (
 );
 alter table public.login_throttle enable row level security;
 
+-- ── Encrypted attachments (files stored per item, ciphertext only) ──
+create table if not exists public.attachments (
+  id         uuid primary key default gen_random_uuid(),
+  owner      uuid not null references auth.users(id) on delete cascade,
+  item_id    uuid not null references public.vault_items(id) on delete cascade,
+  meta       text not null,
+  data       text not null,
+  size       int  not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists attachments_owner_item_idx on public.attachments (owner, item_id);
+alter table public.attachments enable row level security;
+
 -- ── Two-factor authentication (opt-in TOTP and/or WhatsApp OTP for login) ──
 create table if not exists public.user_2fa (
   owner        uuid primary key references auth.users(id) on delete cascade,
