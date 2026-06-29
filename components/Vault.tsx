@@ -75,6 +75,10 @@ const titlesFor = (t: AppDict): Record<View, string> => ({
   faq: t.titleFaq,
 });
 
+// Small pause between requests in a bulk loop, so deleting many items goes one
+// at a time and doesn't hammer the server with a burst.
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void }) {
   const t = useAppT();
   const [items, setItems] = useState<Item[]>([]);
@@ -250,17 +254,19 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
   async function deleteAll() {
     if (!window.confirm(t.confirmDeleteAll)) return;
     let failed = 0;
-    for (const it of items) {
+    const list = [...items];
+    for (let i = 0; i < list.length; i++) {
       try {
         const res = await fetch('/api/vault', {
           method: 'DELETE',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id: it.id }),
+          body: JSON.stringify({ id: list[i].id }),
         });
         if (!res.ok) failed++;
       } catch {
         failed++;
       }
+      if (i < list.length - 1) await wait(150); // one at a time — gentle on the server
     }
     flash(failed ? t.someDeleteFailed : t.allDeleted);
     load();
@@ -401,17 +407,19 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     if (!selected.size) return;
     if (!window.confirm(`${t.confirmBulkDeletePrefix} ${selected.size} ${t.confirmBulkDeleteSuffix}`)) return;
     let failed = 0;
-    for (const id of selected) {
+    const ids = [...selected];
+    for (let i = 0; i < ids.length; i++) {
       try {
         const res = await fetch('/api/vault', {
           method: 'DELETE',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id }),
+          body: JSON.stringify({ id: ids[i] }),
         });
         if (!res.ok) failed++;
       } catch {
         failed++;
       }
+      if (i < ids.length - 1) await wait(150); // one at a time — gentle on the server
     }
     flash(failed ? t.someDeleteFailed : `${selected.size} ${t.bulkDeletedSuffix}`);
     exitSelect();
