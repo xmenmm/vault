@@ -1,7 +1,25 @@
-# Vault — zero-knowledge password manager
+# myVault — zero-knowledge password manager
 
 One dashboard to store all your logins (Facebook, Gmail, anything), encrypted in
 the browser. Built for Supabase + Vercel, usable from desktop and phone.
+
+## Features
+
+- **Item types** — logins, credit cards, secure notes, identities.
+- **Built-in 2FA / TOTP** (RFC 6238) — rotating codes per entry.
+- **Breach check** — HaveIBeenPwned via k-anonymity (only a 5-char hash prefix
+  leaves the device).
+- **Biometric unlock** — WebAuthn + PRF; the master password always still works.
+- **Generator** — random passwords or memorable passphrases, with an entropy /
+  time-to-crack estimate.
+- **CSV import / export** (Chrome, Bitwarden, etc.) + encrypted JSON backup.
+- **PWA** — installable, works offline.
+- **Bilingual** (Indonesian / English), light/dark themes, custom accent.
+- **Power-user UX** — command palette (⌘K), keyboard navigation, undo on delete,
+  bulk select, password history.
+
+A full write-up of the encryption design lives at **`/security`**, and a
+security contact is published at **`/.well-known/security.txt`** (RFC 9116).
 
 ## Security model
 
@@ -68,3 +86,7 @@ No redirect URLs or extra config needed; auth + data are pure Supabase.
 - Email confirmation is skipped (signup creates the user server-side via the
   service role). The email is only an identifier + the PBKDF2 salt.
 - Clipboard is auto-cleared 30s after a copy.
+
+## License
+
+[MIT](LICENSE) — © 2026 myVault. Audit it, run it, ship it.

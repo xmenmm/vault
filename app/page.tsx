@@ -179,6 +179,9 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
+              <Link href="/security" className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[#7aa2ff] hover:text-white transition">
+                {t.secLearnMore} →
+              </Link>
             </div>
 
             <div className="relative rounded-2xl border border-white/[0.08] bg-[#080a10] overflow-hidden shadow-2xl">
@@ -336,6 +339,7 @@ const COPY = {
     secTitleEm: 'kami',
     secTitle2: ' nggak bisa baca.',
     secDesc: 'Master password kamu diubah jadi kunci enkripsi di dalam browser dengan 600.000 putaran PBKDF2 — dan nggak pernah keluar dari perangkat kamu. Server cuma menyimpan ciphertext yang teracak.',
+    secLearnMore: 'Pelajari keamanannya',
     security: [
       'Master password nggak pernah dikirim — cuma hash satu-arah.',
       'Enkripsi terautentikasi AES-256-GCM di tiap entri.',
@@ -405,6 +409,7 @@ const COPY = {
     secTitleEm: 'we',
     secTitle2: ' can’t read it.',
     secDesc: 'Your master password is turned into an encryption key inside the browser with 600,000 PBKDF2 rounds — and never leaves your device. The server only stores scrambled ciphertext.',
+    secLearnMore: 'Learn about our security',
     security: [
       'The master password is never sent — only a one-way hash.',
       'Authenticated AES-256-GCM encryption on every entry.',

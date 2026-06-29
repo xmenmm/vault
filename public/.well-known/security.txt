@@ -1,0 +1,8 @@
+# myVault — security contact (RFC 9116)
+# Found a vulnerability? Please report it responsibly.
+
+Contact: mailto:scarfacescarlxrd@gmail.com
+Contact: https://vault-xi-beryl.vercel.app/security
+Expires: 2027-01-01T00:00:00.000Z
+Preferred-Languages: id, en
+Canonical: https://vault-xi-beryl.vercel.app/.well-known/security.txt
