@@ -1050,6 +1050,36 @@ mark.hl { background: rgba(91,140,255,.38); color: var(--text); border-radius: 3
 /* ── Keyboard-highlighted list row ── */
 .item.cursored { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
+/* ── Emergency kit (printable recovery sheet) ── */
+.ekit-modal { max-width: 640px; }
+.ekit-sheet { background: #fff; color: #14181f; border-radius: 10px; padding: 28px 30px; }
+.ekit-head { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #14181f; padding-bottom: 14px; margin-bottom: 16px; }
+.ekit-title { font-size: 20px; font-weight: 800; margin: 0; color: #14181f; }
+.ekit-date { font-size: 12.5px; color: #5b6472; margin: 2px 0 0; }
+.ekit-warn { background: #fff4e5; border: 1px solid #f0c178; color: #7a4a00; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
+.ekit-fields { margin-bottom: 16px; }
+.ekit-row { display: flex; align-items: baseline; gap: 12px; padding: 7px 0; border-bottom: 1px dashed #c9d0db; }
+.ekit-lbl { flex: none; width: 130px; font-size: 13px; color: #5b6472; }
+.ekit-val { font-size: 14px; word-break: break-all; font-family: ui-monospace, monospace; color: #14181f; }
+.ekit-blank { flex: 1; border-bottom: 1.5px solid #14181f; min-height: 1.3em; min-width: 180px; }
+.ekit-sub { font-size: 12px; color: #8a93a0; margin: 6px 0 0; }
+.ekit-crit { background: #fdecec; border: 1px solid #f0a0a0; color: #9a1a1a; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.5; font-weight: 600; margin: 0 0 16px; }
+.ekit-sec-title { font-size: 13px; font-weight: 700; color: #14181f; margin: 0 0 8px; }
+.ekit-codes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin-bottom: 16px; }
+.ekit-code-line { display: flex; align-items: baseline; gap: 6px; }
+.ekit-code-line > span:first-child { color: #5b6472; font-size: 13px; width: 18px; }
+.ekit-how ol { margin: 0; padding-left: 18px; color: #2a3340; font-size: 13px; line-height: 1.7; }
+.ekit-acts { margin-top: 16px; }
+
+@media print {
+  body * { visibility: hidden !important; }
+  .ekit-sheet, .ekit-sheet * { visibility: visible !important; }
+  .ekit-sheet { position: absolute; left: 0; top: 0; width: 100%; padding: 0; border-radius: 0; }
+  .scrim { position: static !important; background: #fff !important; padding: 0 !important; }
+  .modal { box-shadow: none !important; border: none !important; padding: 0 !important; background: #fff !important; }
+  .ekit-acts { display: none !important; }
+}
+
 /* ── Encrypted attachments ── */
 .att { margin-top: 16px; }
 .att-list { display: flex; flex-direction: column; gap: 6px; }

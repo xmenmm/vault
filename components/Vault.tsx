@@ -12,6 +12,7 @@ import { qrSupported, decodeQrFromImage, parseOtpauthSecret } from '@/lib/qr';
 import { TwoFactorCard } from '@/components/TwoFactorCard';
 import { ChangePassword } from '@/components/ChangePassword';
 import { Attachments } from '@/components/Attachments';
+import { EmergencyKit } from '@/components/EmergencyKit';
 import { Logo, BrandMark } from '@/components/Logo';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
@@ -1540,6 +1541,7 @@ function SettingsView({
   const [bioAvail, setBioAvail] = useState(false);
   const [bioOn, setBioOn] = useState(false);
   const [bioBusy, setBioBusy] = useState(false);
+  const [showKit, setShowKit] = useState(false);
 
   useEffect(() => {
     setAutolock(localStorage.getItem('vault-autolock') ?? '30');
@@ -1727,7 +1729,17 @@ function SettingsView({
             <span className="knob" />
           </button>
         </div>
+        <div className="kv">
+          <span>
+            {t.ekRowTitle}
+            <br />
+            <small style={{ color: 'var(--muted)' }}>{t.ekRowHint}</small>
+          </span>
+          <button className="btn sec" onClick={() => setShowKit(true)}>{t.ekRowBtn}</button>
+        </div>
       </div>
+
+      {showKit && <EmergencyKit onClose={() => setShowKit(false)} />}
 
       <div className="panel-card" style={{ marginTop: 14 }}>
         <h3 className="pc-title">{t.setVaultInfo}</h3>
