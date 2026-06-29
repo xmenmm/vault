@@ -3,7 +3,7 @@
 // number, a transient WhatsApp OTP, and hashed one-time recovery codes.
 
 import crypto from 'node:crypto';
-import { admin } from '@/lib/supabase-admin';
+import { admin, isMissingTable } from '@/lib/supabase-admin';
 import { verifyTotp } from '@/lib/totp-server';
 
 export type RecoveryEntry = { h: string; used: boolean };
@@ -17,7 +17,6 @@ export type TwoFaRow = {
   wa_sent_at: string | null;
 };
 
-const UNDEFINED_TABLE = '42P01'; // Postgres: table not created yet → feature off
 const OTP_TTL_MS = 5 * 60 * 1000;
 const SEND_COOLDOWN_MS = 30 * 1000;
 const COLS = 'secret, recovery, wa_phone, wa_verified, wa_code_hash, wa_code_exp, wa_sent_at';
@@ -41,7 +40,7 @@ function safeHexEqual(a: string, b: string): boolean {
 export async function getTwoFaRow(owner: string): Promise<TwoFaRow | null> {
   const { data, error } = await admin().from('user_2fa').select(COLS).eq('owner', owner).maybeSingle();
   if (error) {
-    if (error.code === UNDEFINED_TABLE) return null;
+    if (isMissingTable(error)) return null;
     throw new Error(error.message);
   }
   if (!data) return null;
