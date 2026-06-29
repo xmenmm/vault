@@ -65,6 +65,7 @@ const APP = {
 
     // ── Toasts / confirms ──
     loadFailed: 'Gagal memuat',
+    offlineMode: 'Mode offline — menampilkan data tersimpan',
     saveFailedRetry: 'Gagal menyimpan — coba lagi',
     saved: 'Tersimpan',
     saveFailedConn: 'Gagal menyimpan — cek koneksi',
@@ -447,6 +448,7 @@ const APP = {
 
     // ── Toasts / confirms ──
     loadFailed: 'Failed to load',
+    offlineMode: 'Offline mode — showing cached data',
     saveFailedRetry: 'Save failed — try again',
     saved: 'Saved',
     saveFailedConn: 'Save failed — check your connection',

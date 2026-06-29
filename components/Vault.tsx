@@ -7,6 +7,7 @@ import { strength, strengthFromBits, crackTimeLabel } from '@/lib/strength';
 import { pwnedCount } from '@/lib/breach';
 import { parseCsv, csvToLogins, toCsv } from '@/lib/csv';
 import { totpCode, totpRemaining } from '@/lib/totp';
+import { saveRows, loadRows, clearRows, type VaultRow } from '@/lib/offline';
 import { OrbitalLoader } from '@/components/OrbitalLoader';
 import { getInstallPrompt, clearInstallPrompt } from '@/components/Pwa';
 import { biometricAvailable, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/webauthn';
@@ -81,6 +82,11 @@ const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void }) {
   const t = useAppT();
+  // Drop the encrypted offline cache when locking, then hand off to the parent's lock.
+  const handleLock = useCallback(() => {
+    void clearRows();
+    onLock();
+  }, [onLock]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [firstLoad, setFirstLoad] = useState(true);
@@ -131,18 +137,27 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch('/api/vault');
-    if (!res.ok) {
+    let rows: VaultRow[] | null = null;
+    let offline = false;
+    try {
+      const res = await fetch('/api/vault');
+      if (!res.ok) throw new Error(`vault ${res.status}`);
+      rows = ((await res.json()) as { items: VaultRow[] }).items ?? [];
+      // Cache the ciphertext so the vault still opens offline (fire-and-forget).
+      void saveRows(rows);
+    } catch {
+      // Network down — fall back to the encrypted offline cache.
+      rows = await loadRows();
+      offline = true;
+    }
+    if (!rows) {
       flash(t.loadFailed);
       setLoading(false);
       setFirstLoad(false);
       return;
     }
-    const { items: rows } = (await res.json()) as {
-      items: { id: string; data: string; created_at?: string; updated_at?: string }[];
-    };
     const out: Item[] = [];
-    for (const r of rows ?? []) {
+    for (const r of rows) {
       try {
         const f = JSON.parse(await decryptStr(keys.encKey, r.data)) as Fields;
         out.push({ ...EMPTY, ...f, id: r.id, createdAt: r.created_at, updatedAt: r.updated_at });
@@ -153,6 +168,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
     setItems(out);
     setLoading(false);
     setFirstLoad(false);
+    if (offline) flash(t.offlineMode);
   }, [keys.encKey, flash, t]);
 
   useEffect(() => {
@@ -492,7 +508,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         </nav>
 
         <div className="side-foot">
-          <button className="btn ghost" style={{ width: '100%' }} onClick={onLock}>
+          <button className="btn ghost" style={{ width: '100%' }} onClick={handleLock}>
             {t.lockVault}
           </button>
           <p className="side-note">{t.autoLockNote}</p>
@@ -534,7 +550,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
               <div className="sp" />
             </>
           )}
-          <button className="btn ghost sm only-mobile" onClick={onLock}>
+          <button className="btn ghost sm only-mobile" onClick={handleLock}>
             {t.lock}
           </button>
         </div>
@@ -591,7 +607,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         {view === 'generator' && <GeneratorView onCopy={copy} />}
         {view === 'backup' && <BackupView flash={flash} reload={load} encKey={keys.encKey} />}
         {view === 'settings' && (
-          <SettingsView items={items} keys={keys} onLock={onLock} onDeleteAll={deleteAll} themePref={themePref} onSetTheme={applyTheme} flash={flash} />
+          <SettingsView items={items} keys={keys} onLock={handleLock} onDeleteAll={deleteAll} themePref={themePref} onSetTheme={applyTheme} flash={flash} />
         )}
         {view === 'faq' && <FaqView />}
       </div>
@@ -643,7 +659,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
             { label: t.navBackup, run: () => goView('backup') },
             { label: t.navSettings, run: () => goView('settings') },
             { label: t.navFaq, run: () => goView('faq') },
-            { label: t.lockVault, run: () => onLock() },
+            { label: t.lockVault, run: () => handleLock() },
           ]}
           onItem={(it) => { setView('vault'); setEditing(it); }}
           onClose={() => setPalette(false)}
