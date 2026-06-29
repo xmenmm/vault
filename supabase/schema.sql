@@ -35,3 +35,14 @@ create policy "own update" on public.vault_items
 drop policy if exists "own delete" on public.vault_items;
 create policy "own delete" on public.vault_items
   for delete using (auth.uid() = owner);
+
+-- ── Login rate limiting (anti brute-force) ──
+-- Keyed by sha256(email|ip); only the service-role server key touches it.
+create table if not exists public.login_throttle (
+  key          text primary key,
+  fails        int  not null default 0,
+  first_fail   timestamptz not null default now(),
+  locked_until timestamptz,
+  updated_at   timestamptz not null default now()
+);
+alter table public.login_throttle enable row level security;

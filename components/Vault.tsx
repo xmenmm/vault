@@ -516,12 +516,12 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         </div>
       </aside>
 
-      <div className="main2">
+      <div className="main2" role="main">
         <div className="top">
           {isList ? (
             <>
               <div className="search">
-                <input placeholder={t.searchShort} value={query} onChange={(e) => setQuery(e.target.value)} />
+                <input type="search" aria-label={t.searchShort} placeholder={t.searchShort} value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
               <div className="sp" />
               <select
@@ -529,6 +529,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'recent' | 'title' | 'weak')}
                 title={t.sortTitle}
+                aria-label={t.sortTitle}
               >
                 <option value="recent">{t.sortRecent}</option>
                 <option value="title">{t.sortAZ}</option>
@@ -640,7 +641,7 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
             <button className="btn sm ghost" onClick={selectAllShown}>{t.selectAll} ({shown.length})</button>
             <button className="btn sm sec" disabled={!selected.size} onClick={bulkFav}>{t.bulkFav}</button>
             <button className="btn sm danger" disabled={!selected.size} onClick={bulkDelete}>{t.bulkDelete}</button>
-            <button className="iconbtn" title={t.done} onClick={exitSelect}>✕</button>
+            <button className="iconbtn" title={t.done} aria-label={t.done} onClick={exitSelect}>✕</button>
           </div>
         </div>
       )}
@@ -674,7 +675,9 @@ export default function Vault({ keys, onLock }: { keys: Keys; onLock: () => void
         </div>
       )}
 
-      {toast && <div className="toast">{toast}</div>}
+      <div className="toast-live" role="status" aria-live="polite" aria-atomic="true">
+        {toast && <div className="toast">{toast}</div>}
+      </div>
     </div>
   );
 }
@@ -828,7 +831,9 @@ function SearchView({
     <div className="wrap">
       <input
         className="search-big"
+        type="search"
         autoFocus
+        aria-label={t.searchPlaceholder}
         placeholder={t.searchPlaceholder}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -1103,10 +1108,11 @@ function CommandPalette({
 
   return (
     <div className="scrim cmd-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="cmd">
+      <div className="cmd" role="dialog" aria-modal="true" aria-label={t.cmdPlaceholder}>
         <input
           className="cmd-input"
           autoFocus
+          aria-label={t.cmdPlaceholder}
           placeholder={t.cmdPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -1921,6 +1927,8 @@ function ItemRow({
         <button
           className={`iconbtn ${item.favorite ? 'fav' : ''}`}
           title={item.favorite ? t.rowUnfav : t.rowFav}
+          aria-label={item.favorite ? t.rowUnfav : t.rowFav}
+          aria-pressed={!!item.favorite}
           onClick={() => onToggleFav(item)}
         >
           <StarIcon filled={item.favorite} />
@@ -1951,7 +1959,13 @@ function ItemRow({
           </button>
         )}
         {hasSecret && (
-          <button className="iconbtn" title={show ? t.rowHide : t.rowShowDetail} onClick={() => setShow((s) => !s)}>
+          <button
+            className="iconbtn"
+            title={show ? t.rowHide : t.rowShowDetail}
+            aria-label={show ? t.rowHide : t.rowShowDetail}
+            aria-expanded={show}
+            onClick={() => setShow((s) => !s)}
+          >
             {show ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         )}
@@ -2036,10 +2050,10 @@ function LoginFlowBar({
         {step !== 'done' && (
           <>
             <button className="btn sm" onClick={onCopyPw}>{t.lfCopyPw}</button>
-            <button className="btn ghost sm" title={t.lfReopen} onClick={onReopen}>↗</button>
+            <button className="btn ghost sm" title={t.lfReopen} aria-label={t.lfReopen} onClick={onReopen}>↗</button>
           </>
         )}
-        <button className="iconbtn" title={t.done} onClick={onClose}>✕</button>
+        <button className="iconbtn" title={t.done} aria-label={t.done} onClick={onClose}>✕</button>
       </div>
     </div>
   );
@@ -2158,8 +2172,8 @@ function ItemModal({
 
   return (
     <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <h2>{id ? t.modalEditTitle : t.modalNewTitle}</h2>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="item-modal-title">
+        <h2 id="item-modal-title">{id ? t.modalEditTitle : t.modalNewTitle}</h2>
         <form onSubmit={submit}>
           <label className="fld">{t.fldType}</label>
           <div className="seg type-seg" style={{ marginBottom: 14 }}>

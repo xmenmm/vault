@@ -39,6 +39,11 @@ security contact is published at **`/.well-known/security.txt`** (RFC 9116).
   vault **without** the master password. The master password itself is still never
   stored or sent. If you want strictly memory-only (re-login every refresh),
   remove the persistence in `app/providers.tsx`.
+- **Login rate limiting.** Failed logins are throttled per (email + IP) — 8 misses
+  in 15 minutes triggers a 15-minute lockout — to blunt online brute-force. It runs
+  in-memory out of the box; run `supabase/throttle.sql` to make it durable across
+  serverless instances. It fails **open** (a throttle-store outage never locks you
+  out of your own vault).
 - **There is no password reset.** Lose the master password → the data is gone.
   That's the point of zero-knowledge.
 

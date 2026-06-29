@@ -30,6 +30,17 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
   const creating = setup === true;
 
+  // Turn a failed /api/auth/login response into a user-facing message, surfacing
+  // the rate-limit lockout ("try again in N minutes") when the server returns 429.
+  async function loginError(res: Response, fallback: string): Promise<string> {
+    const d = (await res.json().catch(() => ({}))) as { error?: string; retryAfter?: number };
+    if (res.status === 429) {
+      const mins = Math.max(1, Math.ceil((d.retryAfter ?? 900) / 60));
+      return t.errLockedTpl.replace('{m}', String(mins));
+    }
+    return d.error || fallback;
+  }
+
   async function bioUnlock() {
     setErr(null);
     setBioBusy(true);
@@ -40,7 +51,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email, authHash }),
       });
-      if (!loginRes.ok) throw new Error(t.errExpired);
+      if (!loginRes.ok) throw new Error(await loginError(loginRes, t.errExpired));
       const encKey = await importEncKey(encKeyB64);
       onUnlock({ encKey, authHash });
     } catch (e: unknown) {
@@ -85,8 +96,7 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
         body: JSON.stringify({ email: cleanEmail, authHash: keys.authHash }),
       });
       if (!loginRes.ok) {
-        const d = await loginRes.json().catch(() => ({}));
-        throw new Error(d.error || t.errLogin);
+        throw new Error(await loginError(loginRes, t.errLogin));
       }
       // Remember the email (the username/salt, not secret) so biometric unlock
       // can refresh the session later.
@@ -104,9 +114,9 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
     'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#5b8cff] transition';
 
   const langToggle = (
-    <div className="flex items-center rounded-full border border-white/10 text-[11px] font-bold overflow-hidden">
-      <button type="button" onClick={() => setLang('id')} className={`px-2.5 py-1 transition ${lang === 'id' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}>ID</button>
-      <button type="button" onClick={() => setLang('en')} className={`px-2.5 py-1 transition ${lang === 'en' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}>EN</button>
+    <div className="flex items-center rounded-full border border-white/10 text-[11px] font-bold overflow-hidden" role="group" aria-label="Language">
+      <button type="button" onClick={() => setLang('id')} aria-pressed={lang === 'id'} aria-label="Bahasa Indonesia" className={`px-2.5 py-1 transition ${lang === 'id' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}>ID</button>
+      <button type="button" onClick={() => setLang('en')} aria-pressed={lang === 'en'} aria-label="English" className={`px-2.5 py-1 transition ${lang === 'en' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}>EN</button>
     </div>
   );
 
@@ -162,12 +172,15 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
               <form onSubmit={submit} className="mt-6 space-y-4">
                 <div>
-                  <label className={label}>{t.labelId}</label>
+                  <label htmlFor="vault-id" className={label}>{t.labelId}</label>
                   <input
+                    id="vault-id"
                     className={field}
                     type="text"
                     autoComplete="username"
                     required
+                    aria-invalid={!!err}
+                    aria-describedby={err ? 'login-err' : undefined}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin"
@@ -175,14 +188,17 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
                 </div>
 
                 <div>
-                  <label className={label}>{t.labelPw}</label>
+                  <label htmlFor="vault-pw" className={label}>{t.labelPw}</label>
                   <div className="relative">
                     <input
+                      id="vault-pw"
                       className={field}
                       style={{ paddingRight: 64 }}
                       type={showPw ? 'text' : 'password'}
                       autoComplete={creating ? 'new-password' : 'current-password'}
                       required
+                      aria-invalid={!!err}
+                      aria-describedby={err ? 'login-err' : undefined}
                       value={pw}
                       onChange={(e) => setPw(e.target.value)}
                       placeholder="••••••••"
@@ -190,6 +206,8 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
                     <button
                       type="button"
                       onClick={() => setShowPw((s) => !s)}
+                      aria-pressed={showPw}
+                      aria-label={showPw ? t.hide : t.show}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-400 hover:text-white transition"
                     >
                       {showPw ? t.hide : t.show}
@@ -199,8 +217,9 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
 
                 {creating && (
                   <div>
-                    <label className={label}>{t.labelPw2}</label>
+                    <label htmlFor="vault-pw2" className={label}>{t.labelPw2}</label>
                     <input
+                      id="vault-pw2"
                       className={field}
                       type="password"
                       autoComplete="new-password"
@@ -212,11 +231,16 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
                   </div>
                 )}
 
-                {err && <p className="text-sm text-[#e0503c]">{err}</p>}
+                {err && (
+                  <p id="login-err" role="alert" className="text-sm text-[#e0503c]">
+                    {err}
+                  </p>
+                )}
 
                 <button
                   className="w-full rounded-xl bg-[#5b8cff] py-3 font-semibold text-white hover:bg-[#3f6fe0] transition disabled:opacity-60"
                   disabled={busy}
+                  aria-busy={busy}
                 >
                   {busy ? t.btnBusy : creating ? t.btnCreate : t.btnOpen}
                 </button>
@@ -227,9 +251,10 @@ export default function Lock({ onUnlock }: { onUnlock: (k: Keys) => void }) {
                   type="button"
                   onClick={bioUnlock}
                   disabled={bioBusy}
+                  aria-busy={bioBusy}
                   className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 py-3 font-semibold text-white hover:bg-white/10 transition disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  <span className="text-lg">👆</span>
+                  <span className="text-lg" aria-hidden="true">👆</span>
                   {bioBusy ? t.bioBusy : t.bioBtn}
                 </button>
               )}
@@ -268,6 +293,7 @@ const L = {
     errLogin: 'Email atau master password salah',
     errExpired: 'Sesi kedaluwarsa — masuk pakai master password dulu',
     errBio: 'Gagal buka dengan biometrik',
+    errLockedTpl: 'Terlalu banyak percobaan. Coba lagi dalam {m} menit.',
     errGeneric: 'Gagal',
   },
   en: {
@@ -296,6 +322,7 @@ const L = {
     errLogin: 'Wrong email or master password',
     errExpired: 'Session expired — sign in with your master password first',
     errBio: 'Biometric unlock failed',
+    errLockedTpl: 'Too many attempts. Try again in {m} minutes.',
     errGeneric: 'Something went wrong',
   },
 } as const;
